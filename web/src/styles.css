@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  @apply bg-white text-ink font-sans antialiased;
+  font-size: 16px;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 3px solid #1e9b45;
+  outline-offset: 2px;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold min-h-tap text-base transition-colors select-none disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-dark;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-ink border border-gray-300 hover:bg-gray-50;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink hover:bg-gray-100;
+  }
+  .btn-danger {
+    @apply btn bg-alert text-white hover:bg-red-800;
+  }
+  .btn-dark {
+    @apply btn bg-slate text-white hover:bg-slate-light;
+  }
+  .input {
+    @apply w-full rounded-xl border border-gray-300 bg-white px-4 min-h-tap text-base text-ink placeholder:text-gray-400 focus:border-brand focus:ring-0;
+  }
+  .card {
+    @apply rounded-2xl bg-white border border-gray-200 p-4;
+  }
+  .label {
+    @apply block text-sm font-semibold text-gray-700 mb-1;
+  }
+  .sheet {
+    @apply absolute inset-x-0 bottom-0 z-20 rounded-t-3xl bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] max-h-[85%] flex flex-col;
+    padding-bottom: var(--safe-bottom);
+  }
+  .table-wrap {
+    @apply w-full overflow-x-auto rounded-xl border border-gray-200;
+  }
+  .table {
+    @apply min-w-[640px] w-full text-sm text-left;
+  }
+  .table th {
+    @apply bg-gray-50 px-3 py-2 font-semibold text-gray-700 whitespace-nowrap;
+  }
+  .table td {
+    @apply px-3 py-2 border-t border-gray-100 align-top;
+  }
+}
+
+.maplibregl-ctrl-attrib {
+  font-size: 11px;
+}
