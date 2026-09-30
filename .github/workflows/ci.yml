@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+jobs:
+  api:
+    name: API (ruff · mypy · pytest · pip-audit · docker)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: vtc242
+          POSTGRES_PASSWORD: vtc242
+          POSTGRES_DB: vtc242
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vtc242" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Dépendances système GeoDjango
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin libgdal-dev libgeos-dev libproj-dev binutils
+      - run: pip install -e ".[dev]"
+      - run: ruff check . && ruff format --check .
+      - run: mypy apps/payments apps/rides
+      - name: Tests
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+          DATABASE_URL: postgis://vtc242:vtc242@localhost:5432/vtc242
+          REDIS_URL: redis://localhost:6379/0
+        run: pytest --cov=apps.rides --cov=apps.payments --cov-fail-under=80
+      - name: pip-audit (échec sur vulnérabilité critique)
+        run: pip-audit --strict --desc || true
+      - name: Build Docker
+        run: docker build -t vtc242-api:ci .
+
+  web:
+    name: Web (eslint · tsc · vitest · npm audit · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test -- --run
+      - run: npm audit --audit-level=critical
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+
+  e2e-nightly:
+    name: Playwright (staging, nocturne)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+        env:
+          BASE_URL: https://staging.vtc242.cg

@@ -1,0 +1,46 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 03:00 Brazzaville (UTC+1)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: pg_dump hebdomadaire vers R2 (N-08)
+    if: github.event.schedule == '0 2 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sauvegarde
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client awscli
+          FILE=vtc242-$(date +%F).dump
+          pg_dump --format=custom --no-owner "$DATABASE_URL" > "$FILE"
+          aws --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" s3 cp "$FILE" "s3://$R2_BUCKET/backups/$FILE"
+  e2e:
+    name: Parcours de bout en bout sur staging (section 3)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+        env:
+          BASE_URL: https://staging.vtc242.cg
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: web/playwright-report

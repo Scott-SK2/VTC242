@@ -1,0 +1,121 @@
+# Blueprint Render (section 11.1). Région Frankfurt. L'API et le WebSocket partagent le même service.
+services:
+  - type: web
+    name: vtc242-api
+    runtime: docker
+    region: frankfurt
+    plan: standard
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/
+    preDeployCommand: python manage.py migrate --noinput && python manage.py collectstatic --noinput
+    dockerCommand: uvicorn config.asgi:application --host 0.0.0.0 --port $PORT --workers 2
+    autoDeploy: true
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 70
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vtc242-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: vtc242-redis
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: api.vtc242.cg,vtc242-api.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://app.vtc242.cg,https://staging.vtc242.cg
+      - key: FRONTEND_URL
+        value: https://app.vtc242.cg
+      - key: API_BASE_URL
+        value: https://api.vtc242.cg
+      - key: PAYMENT_PROVIDER_MODE
+        value: sandbox
+      - key: SMS_BACKEND
+        value: infobip
+      - key: OSRM_URL
+        value: https://router.project-osrm.org
+      - key: PHOTON_URL
+        value: https://photon.komoot.io
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: INFOBIP_API_KEY
+        sync: false
+      - key: INFOBIP_BASE_URL
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: MTN_API_USER
+        sync: false
+      - key: MTN_API_KEY
+        sync: false
+      - key: MTN_SUBSCRIPTION_KEY
+        sync: false
+      - key: MTN_ENV
+        value: sandbox
+      - key: AIRTEL_CLIENT_ID
+        sync: false
+      - key: AIRTEL_CLIENT_SECRET
+        sync: false
+      - key: AIRTEL_ENV
+        value: sandbox
+      - key: SENTRY_DSN
+        sync: false
+
+  - type: worker
+    name: vtc242-worker
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerCommand: celery -A config worker -l info --concurrency 4
+    autoDeploy: true
+    envVars:
+      - fromGroup: vtc242-shared
+
+  - type: worker
+    name: vtc242-beat
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerCommand: celery -A config beat -l info
+    autoDeploy: true
+    envVars:
+      - fromGroup: vtc242-shared
+
+  - type: keyvalue
+    name: vtc242-redis
+    region: frankfurt
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  - name: vtc242-db
+    region: frankfurt
+    plan: basic-1gb
+    postgresMajorVersion: "16"
+
+envVarGroups:
+  - name: vtc242-shared
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: PAYMENT_PROVIDER_MODE
+        value: sandbox
