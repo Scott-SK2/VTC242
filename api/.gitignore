@@ -9,3 +9,4 @@ staticfiles/
 .ruff_cache/
 htmlcov/
 .coverage
+celerybeat-schedule*

@@ -16,3 +16,4 @@ htmlcov/
 web/playwright-report/
 web/test-results/
 dump.rdb
+celerybeat-schedule*
