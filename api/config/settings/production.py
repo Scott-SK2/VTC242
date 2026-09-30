@@ -2,7 +2,8 @@ from .base import *  # noqa: F401,F403
 from .base import STORAGES, env
 
 DEBUG = False
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+SECURE_REDIRECT_EXEMPT = [r"^health/$", r"^metrics$"]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True

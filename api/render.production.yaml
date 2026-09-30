@@ -1,9 +1,11 @@
-# Blueprint Render (section 11.1). Région Frankfurt. L'API et le WebSocket partagent le même service.
+# Blueprint Render de production (section 11.1). Région Frankfurt. L'API et le WebSocket partagent le même service.
+# Pour l'utiliser : copier ce fichier en render.yaml à la racine du dépôt (à la place du profil de test).
 services:
   - type: web
     name: vtc242-api
     runtime: docker
     region: frankfurt
+    rootDir: api
     plan: standard
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health/
@@ -81,6 +83,7 @@ services:
     name: vtc242-worker
     runtime: docker
     region: frankfurt
+    rootDir: api
     plan: starter
     dockerfilePath: ./Dockerfile
     dockerCommand: celery -A config worker -l info --concurrency 4
@@ -92,6 +95,7 @@ services:
     name: vtc242-beat
     runtime: docker
     region: frankfurt
+    rootDir: api
     plan: starter
     dockerfilePath: ./Dockerfile
     dockerCommand: celery -A config beat -l info
