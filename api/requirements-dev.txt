@@ -130,7 +130,7 @@ django-stubs==6.1.1
     #   djangorestframework-stubs
 django-stubs-ext==6.1.1
     # via django-stubs
-djangorestframework==3.17.2
+djangorestframework==3.18.1
     # via
     #   vtc242-api (pyproject.toml)
     #   djangorestframework-simplejwt
