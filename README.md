@@ -7,7 +7,7 @@ Ce dépôt contient l'application web V1 décrite dans le [cahier des charges v3
 ## Structure
 
 ```
-api/    Django 5.1 · DRF · Channels · Celery · PostGIS · Redis   (déployé sur Render, render.yaml)
+api/    Django 5.1 · DRF · Channels · Celery · PostGIS · Redis   (déployé sur Render : render.yaml test, api/render.production.yaml prod)
 web/    React 18 · Vite · TypeScript · Tailwind · MapLibre · PWA (déployé sur Vercel, vercel.json)
 docs/   Cahier des charges, contrat d'API, guide d'exploitation, runbook, guide back-office
 .github/workflows/  CI (PR), déploiements, nocturne (Playwright, sauvegarde)
@@ -48,6 +48,7 @@ Sans Docker : voir [api/README.md](api/README.md) et [web/README.md](web/README.
 ## Documentation
 
 - [Contrat d'API](docs/api-contract.md) · OpenAPI générée sur `/api/docs/`
+- [Déployer en ligne pour tester (Render + Vercel)](docs/deploiement-test.md)
 - [Guide d'exploitation Render / Vercel](docs/exploitation.md)
 - [Runbook d'incident](docs/runbook-incident.md)
 - [Guide utilisateur du back-office](docs/guide-backoffice.md)

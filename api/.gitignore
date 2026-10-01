@@ -10,3 +10,4 @@ staticfiles/
 htmlcov/
 .coverage
 celerybeat-schedule*
+*.egg-info/

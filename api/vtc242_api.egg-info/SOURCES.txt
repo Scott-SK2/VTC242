@@ -1,6 +1,0 @@
-pyproject.toml
-vtc242_api.egg-info/PKG-INFO
-vtc242_api.egg-info/SOURCES.txt
-vtc242_api.egg-info/dependency_links.txt
-vtc242_api.egg-info/requires.txt
-vtc242_api.egg-info/top_level.txt

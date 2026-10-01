@@ -1,0 +1,72 @@
+# Blueprint Render — profil « test en ligne » (plans gratuits, un seul service web).
+# Le worker et Beat Celery tournent dans le conteneur web (RUN_WORKER_IN_WEB=1),
+# les migrations et le jeu de démo sont exécutés au démarrage.
+# Le profil de production complet (web + worker + beat, plans payants) est dans api/render.production.yaml.
+services:
+  - type: web
+    name: vtc242-api
+    runtime: docker
+    region: frankfurt
+    plan: free
+    rootDir: api
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/
+    autoDeploy: true
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vtc242-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: vtc242-redis
+          property: connectionString
+      - key: WEB_WORKERS
+        value: "1"
+      - key: RUN_MIGRATIONS_ON_START
+        value: "1"
+      - key: SEED_DEMO
+        value: "1"
+      - key: RUN_WORKER_IN_WEB
+        value: "1"
+      - key: ALLOWED_HOSTS
+        value: localhost
+      # Test uniquement : accepte toutes les origines (mettre 0 et renseigner CORS_ALLOWED_ORIGINS en production)
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "1"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://vtc242.vercel.app
+      # À remplacer par l'URL Vercel une fois connue (liens de partage de trajet)
+      - key: FRONTEND_URL
+        value: https://vtc242.vercel.app
+      - key: API_BASE_URL
+        value: https://vtc242-api.onrender.com
+      - key: PAYMENT_PROVIDER_MODE
+        value: sandbox
+      # Sans Infobip, l'OTP est affiché dans l'application (test uniquement !)
+      - key: SMS_BACKEND
+        value: console
+      - key: DEBUG_OTP_IN_RESPONSE
+        value: "1"
+      - key: OSRM_URL
+        value: https://router.project-osrm.org
+      - key: PHOTON_URL
+        value: https://photon.komoot.io
+
+  - type: keyvalue
+    name: vtc242-redis
+    region: frankfurt
+    plan: free
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  - name: vtc242-db
+    region: frankfurt
+    plan: free
+    postgresMajorVersion: "16"

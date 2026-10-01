@@ -13,6 +13,8 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
     CORS_ALLOWED_ORIGINS=(list, ["http://localhost:5173"]),
+    CORS_ALLOW_ALL_ORIGINS=(bool, False),
+    RENDER_EXTERNAL_HOSTNAME=(str, ""),
     FRONTEND_URL=(str, "http://localhost:5173"),
     PAYMENT_PROVIDER_MODE=(str, "sandbox"),
     SMS_BACKEND=(str, "console"),
@@ -207,20 +209,30 @@ SPECTACULAR_SETTINGS = {
 }
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL_ORIGINS")  # test en ligne uniquement
 CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://vtc242-web(-[\w-]+)?\.vercel\.app$"]
 CORS_ALLOW_CREDENTIALS = True
 
-CSP_DEFAULT_SRC = ("'self'",)
-CSP_IMG_SRC = ("'self'", "data:", "https:")
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net")
-CSP_STYLE_SRC = (
-    "'self'",
-    "'unsafe-inline'",
-    "https://cdn.jsdelivr.net",
-    "https://fonts.googleapis.com",
-)
-CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")
-CSP_CONNECT_SRC = ("'self'",)
+# Hôte public injecté par Render (ex. vtc242-api.onrender.com)
+_render_host = env("RENDER_EXTERNAL_HOSTNAME")
+if _render_host and _render_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_render_host)
+
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ("'self'",),
+        "img-src": ("'self'", "data:", "https:"),
+        "script-src": ("'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"),
+        "style-src": (
+            "'self'",
+            "'unsafe-inline'",
+            "https://cdn.jsdelivr.net",
+            "https://fonts.googleapis.com",
+        ),
+        "font-src": ("'self'", "https://fonts.gstatic.com"),
+        "connect-src": ("'self'",),
+    }
+}
 
 LANGUAGE_CODE = "fr"
 TIME_ZONE = "Africa/Brazzaville"

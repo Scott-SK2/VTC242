@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react';
-import maplibregl, { type Map as MlMap, type Marker } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import type { Map as MlMap, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// MapLibre ≥ 5 charge son worker par URL relative au module : on le fait empaqueter par Vite.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 import { mapStyle } from './style';
 import type { MapMarker, MapViewProps, MarkerKind } from './types';
 import { BRAZZAVILLE, boundsOf } from '@/shared/utils/geo';
@@ -91,7 +96,9 @@ export default function MapView({
       syncRoutes(map, routes);
       syncPolygon(map, polygon);
     });
-    map.on('click', (e) => onClickRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }));
+    map.on('click', (e: maplibregl.MapMouseEvent) =>
+      onClickRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }),
+    );
     mapRef.current = map;
     const markerStore = markersRef.current;
     return () => {
