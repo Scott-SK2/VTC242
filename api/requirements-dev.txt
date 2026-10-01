@@ -204,7 +204,7 @@ msgpack==1.2.3
     #   autobahn
     #   cachecontrol
     #   channels-redis
-multidict==6.9.1
+multidict==7.0.0
     # via
     #   aiohttp
     #   yarl
