@@ -60,13 +60,17 @@ export default defineConfig({
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
-          query: ['@tanstack/react-query', 'zustand'],
-          i18n: ['i18next', 'react-i18next'],
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id))
+            return 'react';
+          if (/[\\/]node_modules[\\/](@tanstack|zustand)[\\/]/.test(id)) return 'query';
+          if (/[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/.test(id)) return 'i18n';
+          return undefined;
         },
       },
     },
   },
+  worker: { format: 'es' },
   server: { port: 5173 },
 });
