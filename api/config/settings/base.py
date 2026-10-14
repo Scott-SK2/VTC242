@@ -121,6 +121,16 @@ DATABASES = {
 DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 DATABASES["default"]["CONN_MAX_AGE"] = 60
 
+# Schéma Postgres dédié (ex. base partagée avec une autre application en phase de test) :
+# toutes les tables de VTC 242, django_migrations compris, vivent dans ce schéma.
+DATABASE_SCHEMA = env("DATABASE_SCHEMA", default="").strip()
+if DATABASE_SCHEMA:
+    if not DATABASE_SCHEMA.replace("_", "").isalnum():
+        raise ValueError("DATABASE_SCHEMA doit être un identifiant simple (lettres, chiffres, _).")
+    DATABASES["default"].setdefault("OPTIONS", {})["options"] = (
+        f"-c search_path={DATABASE_SCHEMA},public"
+    )
+
 REDIS_URL = env("REDIS_URL")
 
 CACHES = {

@@ -6,8 +6,11 @@ Objectif : une URL publique fonctionnelle en une vingtaine de minutes, sans cart
 
 1. Créez un compte sur https://render.com et connectez votre compte GitHub (autorisez le dépôt `VTC242`).
 2. Dashboard → **New +** → **Blueprint** → choisissez le dépôt `VTC242` et la branche à déployer (`claude/modest-babbage-05i0x4` ou `main` après fusion).
-3. Render lit `render.yaml` à la racine et propose de créer : `vtc242-api` (web, Docker, plan free), `vtc242-redis` (Key Value, free), `vtc242-db` (Postgres 16, free). Cliquez **Apply**.
-4. Attendez la fin du build Docker (5 à 10 min la première fois). Au démarrage, le conteneur exécute `migrate`, `seed_demo`, puis Uvicorn et Celery.
+3. Render lit `render.yaml` à la racine et propose de créer : `vtc242-api` (web, Docker, plan free) et `vtc242-redis` (Key Value, free). Il demande la valeur de `DATABASE_URL` : collez l'**Internal Database URL** de la base Postgres existante du workspace (Dashboard → votre base, par ex. celle de *somboko* → *Connect* → *Internal Database URL*). Cliquez **Apply**.
+   - Les tables de VTC 242 sont isolées dans le schéma Postgres `vtc242` (variable `DATABASE_SCHEMA`), créé automatiquement au démarrage : aucune collision avec les tables de l'autre application, qui ne sont ni lues ni modifiées. Pour les voir : `psql "$DATABASE_URL" -c "\dt vtc242.*"`.
+   - Pour une base dédiée à la place, remplacez dans `render.yaml` la ligne `sync: false` de `DATABASE_URL` par `fromDatabase: { name: vtc242-db, property: connectionString }` et rétablissez une section `databases:` (modèle dans `api/render.production.yaml`). Un workspace Render n'a droit qu'à une seule base gratuite.
+   - Le jour de la mise en production, la migration vers une base propre se fait par `pg_dump --schema=vtc242` puis `pg_restore`.
+4. Attendez la fin du build Docker (5 à 10 min la première fois). Au démarrage, le conteneur exécute `ensure_schema`, `migrate`, `seed_demo`, puis Uvicorn et Celery.
 5. Ouvrez `https://<votre-service>.onrender.com/health/` → `{"status":"ok"}` et `https://<votre-service>.onrender.com/api/docs/` pour la documentation.
 6. Notez l'URL exacte du service (par ex. `https://vtc242-api-abcd.onrender.com`) : elle sert au frontend.
 
@@ -53,7 +56,7 @@ Parcours conseillé avec deux téléphones (ou deux navigateurs) :
 5. Recharge wallet : montant 5000 → succès en 3 s ; 5001 → refusé ; 5002 → expire après 15 min.
 6. Back-office : `https://<vercel>/admin` avec `+242060000003` (support) ou `+242060000001` (admin, scannez le QR TOTP avec Google Authenticator).
 
-Limites du plan gratuit Render : le service s'endort après 15 min d'inactivité (première requête lente, 30 à 60 s), la base gratuite expire après 30 jours, 512 Mo de RAM partagés entre l'API et Celery. Pour la production, utilisez `api/render.production.yaml` (services séparés, plans Standard / Starter) et retirez `CORS_ALLOW_ALL_ORIGINS`, `DEBUG_OTP_IN_RESPONSE`, `SEED_DEMO` et `RUN_WORKER_IN_WEB`.
+Limites du plan gratuit Render : le service s'endort après 15 min d'inactivité (première requête lente, 30 à 60 s), une base gratuite expire après 30 jours, 512 Mo de RAM partagés entre l'API et Celery. Une base partagée avec une autre application partage aussi ses connexions, son stockage et ses sauvegardes. Pour la production, utilisez `api/render.production.yaml` (services séparés, plans Standard / Starter) et retirez `CORS_ALLOW_ALL_ORIGINS`, `DEBUG_OTP_IN_RESPONSE`, `SEED_DEMO` et `RUN_WORKER_IN_WEB`.
 
 ## 4. Options utiles
 
