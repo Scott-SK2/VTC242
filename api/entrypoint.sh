@@ -8,6 +8,7 @@ PORT="${PORT:-8000}"
 WEB_WORKERS="${WEB_WORKERS:-2}"
 
 if [ "${RUN_MIGRATIONS_ON_START:-0}" = "1" ]; then
+  python manage.py ensure_schema
   python manage.py migrate --noinput
 fi
 if [ "${SEED_DEMO:-0}" = "1" ]; then

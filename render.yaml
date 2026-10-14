@@ -17,10 +17,16 @@ services:
         value: config.settings.production
       - key: SECRET_KEY
         generateValue: true
+      # Base Postgres : réutilisation d'une base existante du workspace (ex. celle de « somboko »).
+      # Coller son « Internal Database URL » dans le dashboard Render. Les tables de VTC 242
+      # sont isolées dans le schéma DATABASE_SCHEMA (créé automatiquement au démarrage).
+      # Pour créer une base dédiée à la place : remplacer par
+      #   fromDatabase: { name: vtc242-db, property: connectionString }
+      # et rétablir la section de base de données (voir api/render.production.yaml).
       - key: DATABASE_URL
-        fromDatabase:
-          name: vtc242-db
-          property: connectionString
+        sync: false
+      - key: DATABASE_SCHEMA
+        value: vtc242
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -64,9 +70,3 @@ services:
     plan: free
     maxmemoryPolicy: noeviction
     ipAllowList: []
-
-databases:
-  - name: vtc242-db
-    region: frankfurt
-    plan: free
-    postgresMajorVersion: "16"
