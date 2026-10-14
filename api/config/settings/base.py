@@ -122,13 +122,20 @@ DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 DATABASES["default"]["CONN_MAX_AGE"] = 60
 
 # Schéma Postgres dédié (ex. base partagée avec une autre application en phase de test) :
-# toutes les tables de VTC 242, django_migrations compris, vivent dans ce schéma.
+# toutes les tables de VTC 242, django_migrations compris, vivent dans ce schéma, et le
+# search_path n'inclut PAS public : aucun repli possible sur les tables de l'autre application.
+# DATABASE_EXTRA_SEARCH_PATH (liste séparée par des virgules) n'est nécessaire que si PostGIS
+# est déjà installé dans un autre schéma de la base (ensure_schema l'indique).
 DATABASE_SCHEMA = env("DATABASE_SCHEMA", default="").strip()
+DATABASE_EXTRA_SEARCH_PATH = [
+    s.strip() for s in env("DATABASE_EXTRA_SEARCH_PATH", default="").split(",") if s.strip()
+]
 if DATABASE_SCHEMA:
-    if not DATABASE_SCHEMA.replace("_", "").isalnum():
-        raise ValueError("DATABASE_SCHEMA doit être un identifiant simple (lettres, chiffres, _).")
-    DATABASES["default"].setdefault("OPTIONS", {})["options"] = (
-        f"-c search_path={DATABASE_SCHEMA},public"
+    for _name in [DATABASE_SCHEMA, *DATABASE_EXTRA_SEARCH_PATH]:
+        if not _name.replace("_", "").isalnum():
+            raise ValueError("DATABASE_SCHEMA : identifiant simple attendu (lettres, chiffres, _).")
+    DATABASES["default"].setdefault("OPTIONS", {})["options"] = "-c search_path=" + ",".join(
+        [DATABASE_SCHEMA, *DATABASE_EXTRA_SEARCH_PATH]
     )
 
 REDIS_URL = env("REDIS_URL")
