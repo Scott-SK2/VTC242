@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { authApi } from '@/shared/api/endpoints';
 import { isApiError } from '@/shared/api/client';
+import type { OtpVerifyResponse } from '@/shared/api/types';
 import { useAuthStore, homeForRole } from '@/shared/store/auth';
 import { normalizePhone, isValidCongoPhone } from '@/shared/utils/phone';
 import { Button, TextField, ErrorBox } from '@/shared/ui';
@@ -20,6 +21,11 @@ export function LoginPage() {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'passenger' | 'driver'>('passenger');
+  const [mismatch, setMismatch] = useState<{
+    role: 'passenger' | 'driver';
+    dest: string;
+    res: OtpVerifyResponse;
+  } | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [raw, setRaw] = useState<unknown>(null);
@@ -70,12 +76,20 @@ export function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.verifyOtp(normalizePhone(phone), code, role);
+      const from = loc.state?.from;
+      const dest = from && from.startsWith(homeForRole(res.user.role)) ? from : homeForRole(res.user.role);
+      if (
+        !res.created &&
+        res.user.role !== role &&
+        (res.user.role === 'passenger' || res.user.role === 'driver')
+      ) {
+        // F-05 : un compte a un seul rôle ; on prévient avant d'ouvrir la session
+        setMismatch({ role: res.user.role, dest, res });
+        return;
+      }
       setTokens(res.access, res.refresh);
       setUser(res.user);
-      const from = loc.state?.from;
-      nav(from && from.startsWith(homeForRole(res.user.role)) ? from : homeForRole(res.user.role), {
-        replace: true,
-      });
+      nav(dest, { replace: true });
     } catch (err) {
       if (isApiError(err) && err.status === 423) setError(t('auth.locked'));
       else if (isApiError(err) && err.status === 400) {
@@ -126,6 +140,7 @@ export function LoginPage() {
                     <input
                       type="radio"
                       name="role"
+                      value={r}
                       className="sr-only"
                       checked={role === r}
                       onChange={() => setRole(r)}
@@ -174,9 +189,25 @@ export function LoginPage() {
               autoFocus
             />
             <ErrorBox error={raw} />
-            <Button type="submit" block loading={loading} className="mt-3">
-              {t('auth.verify')}
-            </Button>
+            {mismatch ? (
+              <div className="mt-3 rounded-xl bg-code-light p-3 text-sm" role="alert">
+                <p className="mb-3">{t('auth.roleMismatch', { role: t(`roles.${mismatch.role}`) })}</p>
+                <Button
+                  block
+                  onClick={() => {
+                    setTokens(mismatch.res.access, mismatch.res.refresh);
+                    setUser(mismatch.res.user);
+                    nav(mismatch.dest, { replace: true });
+                  }}
+                >
+                  {t('auth.continueAs', { role: t(`roles.${mismatch.role}`) })}
+                </Button>
+              </div>
+            ) : (
+              <Button type="submit" block loading={loading} className="mt-3">
+                {t('auth.verify')}
+              </Button>
+            )}
             <div className="mt-3 flex justify-between">
               <Button variant="ghost" onClick={() => setStep('phone')}>
                 {t('auth.changePhone')}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { LatLng } from '@/shared/api/types';
+import { useGeoSimStore } from '@/shared/store/geoSim';
 
 export interface GeoFix extends LatLng {
   heading: number | null;
@@ -20,7 +21,21 @@ export function toFix(p: GeolocationPosition): GeoFix {
   };
 }
 
+/** Position simulée sous forme de fix GPS (mode test). */
+export function simulatedFix(p: LatLng): GeoFix {
+  return {
+    lat: p.lat,
+    lng: p.lng,
+    heading: null,
+    speed_kmh: 0,
+    accuracy_m: 5,
+    recorded_at: new Date().toISOString(),
+  };
+}
+
 export function getCurrentPosition(timeout = 10000): Promise<GeoFix> {
+  const sim = useGeoSimStore.getState();
+  if (sim.enabled) return Promise.resolve(simulatedFix(sim.position));
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) return reject(new Error('geolocation_unavailable'));
     navigator.geolocation.getCurrentPosition(
@@ -39,8 +54,15 @@ export function getCurrentPosition(timeout = 10000): Promise<GeoFix> {
 export function useWatchPosition(enabled = true) {
   const [fix, setFix] = useState<GeoFix | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const simEnabled = useGeoSimStore((s) => s.enabled);
+  const simPosition = useGeoSimStore((s) => s.position);
   useEffect(() => {
-    if (!enabled || !('geolocation' in navigator)) return;
+    if (!enabled || !simEnabled) return;
+    setFix(simulatedFix(simPosition));
+    setError(null);
+  }, [enabled, simEnabled, simPosition]);
+  useEffect(() => {
+    if (!enabled || simEnabled || !('geolocation' in navigator)) return;
     const id = navigator.geolocation.watchPosition(
       (p) => {
         setFix(toFix(p));
@@ -50,6 +72,6 @@ export function useWatchPosition(enabled = true) {
       { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 },
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, [enabled]);
-  return { fix, error };
+  }, [enabled, simEnabled]);
+  return { fix, error, simulated: simEnabled };
 }

@@ -85,6 +85,8 @@
     "roleDriver": "Chauffeur",
     "roleDriverHint": "Je conduis un taxi ou une voiture",
     "roleHint": "Choix uniquement pour une première inscription. Un compte a un seul rôle.",
+    "roleMismatch": "Ce numéro est déjà enregistré comme {{role}} : un compte a un seul rôle. Pour tester l'autre rôle, utilisez un autre numéro (comptes de démo chauffeurs : +242061000001 à +242061000005).",
+    "continueAs": "Continuer comme {{role}}",
     "invalidCode": "Code incorrect. {{left}} essai(s) restant(s).",
     "invalidCodeShort": "Code incorrect.",
     "locked": "Trop d'essais : numéro bloqué pendant 15 minutes.",
@@ -102,6 +104,18 @@
     "totpInvalid": "Code TOTP invalide.",
     "totpSetupButton": "Générer une clé",
     "notAllowed": "Ce compte n'a pas accès à cette interface."
+  },
+  "geoSim": {
+    "title": "Mode test : position simulée",
+    "hint": "Remplace le GPS par une position à Brazzaville. Utile pour tester hors du Congo. Touchez la carte pour la déplacer.",
+    "enable": "Activer la position simulée",
+    "disable": "Désactiver",
+    "offer": "Simuler ma position à Brazzaville",
+    "outOfZone": "Vous êtes hors de la zone de service (Brazzaville).",
+    "noGps": "Position GPS indisponible.",
+    "active": "Position simulée · touchez la carte pour la déplacer",
+    "current": "Position actuelle : {{lat}}, {{lng}}",
+    "moved": "Position simulée déplacée"
   },
   "nav": {
     "home": "Accueil",

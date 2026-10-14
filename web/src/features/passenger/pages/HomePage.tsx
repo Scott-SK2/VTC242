@@ -20,6 +20,8 @@ import type { Estimate, LatLng, PaymentMethod, Place, VehicleCategory } from '@/
 import { BRAZZAVILLE, formatDistance, formatDuration } from '@/shared/utils/geo';
 import { formatMoney, formatRange } from '@/shared/utils/money';
 import { useWatchPosition } from '@/shared/utils/geolocation';
+import { useGeoSimStore } from '@/shared/store/geoSim';
+import { GeoSimBanner } from '@/shared/ui/GeoSim';
 import { AddressSearch } from '../components/AddressSearch';
 import { toast } from '@/shared/store/ui';
 
@@ -34,7 +36,8 @@ export default function HomePage() {
   const { t } = useTranslation();
   const nav = useNavigate();
   const { data: active } = useActiveRide();
-  const { fix, error: gpsError } = useWatchPosition(true);
+  const { fix, error: gpsError, simulated } = useWatchPosition(true);
+  const moveSim = useGeoSimStore((s) => s.move);
   const [mode, setMode] = useState<Mode>('idle');
   const [tab, setTab] = useState<Tab>('taxis');
   const [pickup, setPickup] = useState<Place | null>(null);
@@ -53,6 +56,11 @@ export default function HomePage() {
   useEffect(() => {
     if (fix && !pickup) setPickup({ lat: fix.lat, lng: fix.lng, address: t('passenger.home.myPosition') });
   }, [fix, pickup, t]);
+  useEffect(() => {
+    if (simulated && fix && mode === 'idle')
+      setPickup({ lat: fix.lat, lng: fix.lng, address: t('passenger.home.myPosition') });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulated, fix?.lat, fix?.lng]);
 
   const estimate = useQuery({
     queryKey: ['estimate', pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng],
@@ -153,11 +161,19 @@ export default function HomePage() {
                   otherMissing ? (pickTarget === 'dropoff' ? 'search-pickup' : 'search-dropoff') : 'estimate',
                 );
               }
-            : undefined
+            : simulated && mode === 'idle'
+              ? (p) => {
+                  moveSim(p);
+                  setPickup({ ...p, address: t('passenger.home.myPosition') });
+                }
+              : undefined
         }
       />
       <div className="absolute top-3 right-3 z-10">
         <EmergencyButton onClick={() => setSos(true)} />
+      </div>
+      <div className="absolute top-3 left-3 z-10 mr-[140px]">
+        <GeoSimBanner fix={fix} gpsError={gpsError} />
       </div>
       <EmergencySheet open={sos} onClose={() => setSos(false)} zone={estimate.data?.zone} rideId={null} />
 
