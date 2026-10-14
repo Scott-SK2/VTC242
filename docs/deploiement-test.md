@@ -61,7 +61,8 @@ Limites du plan gratuit Render : le service s'endort après 15 min d'inactivité
 
 ## 4. Options utiles
 
-- **Position GPS simulée** (Chrome desktop) : DevTools → ⋮ → *More tools* → *Sensors* → *Location* → coordonnées Brazzaville `-4.2650, 15.2800`.
+- **Position simulée intégrée (mode test)** : si vous testez hors du Congo, l'application détecte que vous êtes hors de la zone de service et propose « Simuler ma position à Brazzaville ». Le réglage est aussi dans *Profil → Mode test*. Une fois activée, touchez la carte pour déplacer la position (côté chauffeur, les positions simulées sont envoyées au serveur comme de vraies positions, ce qui permet de tester l'approche, l'arrivée à 200 m et la clôture). Désactivez-la pour revenir au GPS réel.
+- **Un compte = un rôle** (F-05) : le choix passager / chauffeur ne s'applique qu'à la création du compte. Pour tester les deux rôles, utilisez deux numéros différents (par ex. un chauffeur de démo `+242061000001` et un passager `+242069000001`).
 - **Simulateur de trajet chauffeur** : `python api/scripts/gps_simulator.py --api https://<render> --token <access JWT chauffeur> --from -4.2650,15.2800 --to -4.2517,15.2531 --deviate 400` (le JWT s'obtient via `POST /auth/otp/verify`, visible dans l'onglet réseau du navigateur).
 - **SMS réels** : créez un compte Infobip, puis dans Render `SMS_BACKEND=infobip`, `INFOBIP_API_KEY`, `INFOBIP_BASE_URL` (ex. `https://xxxxx.api.infobip.com`), et passez `DEBUG_OTP_IN_RESPONSE=0`.
 - **Fichiers sur R2** : `R2_ACCOUNT_ID`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_BUCKET` dans Render ; sans R2, les uploads sont stockés sur le disque éphémère du conteneur (perdus à chaque redéploiement, suffisant pour tester).

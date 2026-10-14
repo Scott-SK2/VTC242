@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { MobilePage, ProfileForm, Button, Badge } from '@/shared/ui';
+import { MobilePage, ProfileForm, Button, Badge, GeoSimCard } from '@/shared/ui';
 import { driversApi } from '@/shared/api/endpoints';
 import { qk } from '@/shared/api/hooks';
 
@@ -48,6 +48,7 @@ export default function DriverProfilePage() {
         {t('driver.profile.onboarding')}
       </Button>
       <ProfileForm photoRequired />
+      <GeoSimCard />
     </MobilePage>
   );
 }

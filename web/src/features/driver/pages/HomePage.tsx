@@ -22,6 +22,9 @@ import { formatTime } from '@/shared/utils/date';
 import { vibrate, beep } from '@/shared/utils/device';
 import { toast } from '@/shared/store/ui';
 import { useLocationSender } from '../useLocationSender';
+import { useWatchPosition } from '@/shared/utils/geolocation';
+import { useGeoSimStore } from '@/shared/store/geoSim';
+import { GeoSimBanner } from '@/shared/ui/GeoSim';
 import { OfferScreen } from '../components/OfferScreen';
 import { ActiveRide } from '../components/ActiveRide';
 
@@ -37,10 +40,17 @@ export default function DriverHomePage() {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [sos, setSos] = useState(false);
   const isOnline = !!profile.data?.is_online;
-  const { fix, stale, queued, gpsError } = useLocationSender(
+  const { fix, stale, queued, gpsError, simulated } = useLocationSender(
     isOnline || !!currentRide,
     currentRide?.id ?? null,
   );
+  const moveSim = useGeoSimStore((s) => s.move);
+  const simEnabled = useGeoSimStore((s) => s.enabled);
+  const simPosition = useGeoSimStore((s) => s.position);
+  // Hors ligne : position suivie pour l'affichage seulement (proposition du mode test hors zone)
+  const idle = useWatchPosition(!(isOnline || !!currentRide));
+  const shownFix = fix ?? idle.fix ?? (simEnabled ? { ...simPosition, heading: null } : null);
+  const shownGpsError = gpsError ?? idle.error;
 
   const toggle = useMutation({
     mutationFn: (is_online: boolean) => driversApi.setStatus(is_online),
@@ -146,11 +156,13 @@ export default function DriverHomePage() {
         fit={fit}
         fitKey={`${currentRide?.id}-${currentRide?.status}-${!!fix}`}
         follow={!currentRide}
+        onClick={simEnabled ? (p) => moveSim(p) : undefined}
       />
       <div className="absolute top-3 right-3 z-10">
         <EmergencyButton onClick={() => setSos(true)} />
       </div>
       <div className="absolute top-3 left-3 z-10 mr-[140px] space-y-2">
+        <GeoSimBanner fix={shownFix} gpsError={shownGpsError} />
         <div
           className={`rounded-full px-3 py-1.5 text-sm font-extrabold inline-flex items-center gap-2 shadow ${isOnline ? 'bg-brand text-white' : 'bg-white text-gray-600'}`}
           role="status"
@@ -166,7 +178,7 @@ export default function DriverHomePage() {
             {t('driver.home.noPosition', { s: 30 })}
           </div>
         )}
-        {(isOnline || currentRide) && gpsError && !stale && (
+        {(isOnline || currentRide) && gpsError && !stale && !simulated && (
           <div className="rounded-xl bg-slate text-white px-3 py-2 text-sm" role="status">
             {t('passenger.home.gpsDenied')}
           </div>

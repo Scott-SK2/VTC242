@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ws } from '@/shared/ws';
-import { toFix, type GeoFix } from '@/shared/utils/geolocation';
+import { simulatedFix, toFix, type GeoFix } from '@/shared/utils/geolocation';
+import { useGeoSimStore } from '@/shared/store/geoSim';
 import { distanceM } from '@/shared/utils/geo';
 import { enqueuePosition, flushQueue, queuedCount } from './offlineQueue';
 import { useUiStore } from '@/shared/store/ui';
@@ -23,6 +24,8 @@ export function useLocationSender(enabled: boolean, rideId: string | null) {
   const rideIdRef = useRef(rideId);
   rideIdRef.current = rideId;
   const online = useUiStore((s) => s.online);
+  const simEnabled = useGeoSimStore((s) => s.enabled);
+  const simPosition = useGeoSimStore((s) => s.position);
 
   // Wake Lock
   useEffect(() => {
@@ -45,16 +48,36 @@ export function useLocationSender(enabled: boolean, rideId: string | null) {
     };
   }, [enabled]);
 
+  const send = (f: GeoFix) => {
+    const payload = { ...f, ...(rideIdRef.current ? { ride_id: rideIdRef.current } : {}) };
+    if (ws.status === 'open' && navigator.onLine) ws.send('driver.location', payload);
+    else void enqueuePosition(payload).then(() => queuedCount().then(setQueued));
+    lastSentRef.current = { fix: f, at: Date.now() };
+  };
+
+  // Mode test : position simulée envoyée immédiatement puis toutes les 10 s (comme à l'arrêt)
+  useEffect(() => {
+    if (!enabled || !simEnabled) return;
+    const tick = () => {
+      const f = simulatedFix(simPosition);
+      setFix(f);
+      setGpsError(null);
+      lastFixAtRef.current = Date.now();
+      setStale(false);
+      send(f);
+    };
+    tick();
+    const timer = setInterval(tick, STILL_INTERVAL);
+    return () => {
+      clearInterval(timer);
+      lastSentRef.current = null;
+    };
+  }, [enabled, simEnabled, simPosition]);
+
   // Suivi GPS et envoi
   useEffect(() => {
-    if (!enabled || !('geolocation' in navigator)) return;
+    if (!enabled || simEnabled || !('geolocation' in navigator)) return;
     lastFixAtRef.current = Date.now();
-    const send = (f: GeoFix) => {
-      const payload = { ...f, ...(rideIdRef.current ? { ride_id: rideIdRef.current } : {}) };
-      if (ws.status === 'open' && navigator.onLine) ws.send('driver.location', payload);
-      else void enqueuePosition(payload).then(() => queuedCount().then(setQueued));
-      lastSentRef.current = { fix: f, at: Date.now() };
-    };
     const id = navigator.geolocation.watchPosition(
       (p) => {
         const f = toFix(p);
@@ -78,7 +101,7 @@ export function useLocationSender(enabled: boolean, rideId: string | null) {
       clearInterval(staleTimer);
       lastSentRef.current = null;
     };
-  }, [enabled]);
+  }, [enabled, simEnabled]);
 
   // Rejeu de la file au retour du réseau / de la connexion WS
   useEffect(() => {
@@ -89,5 +112,5 @@ export function useLocationSender(enabled: boolean, rideId: string | null) {
     return off;
   }, [online]);
 
-  return { fix, stale, queued, gpsError };
+  return { fix, stale, queued, gpsError, simulated: simEnabled };
 }

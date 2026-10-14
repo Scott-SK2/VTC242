@@ -98,6 +98,8 @@ export interface AuthTokens {
 
 export interface OtpVerifyResponse extends AuthTokens {
   user: User;
+  /** true si le compte vient d'être créé (le rôle choisi ne s'applique qu'à ce moment) */
+  created?: boolean;
 }
 
 export interface UploadTicket {

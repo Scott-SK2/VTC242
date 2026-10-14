@@ -20,3 +20,4 @@ export * from './MobileMoneyForm';
 export * from './RideList';
 export * from './ProfileForm';
 export * from './PageHeader';
+export * from './GeoSim';
