@@ -52,7 +52,20 @@ export function useRide(id: string | undefined) {
 
 export function useActiveRide(enabled = true) {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: qk.activeRide, queryFn: ridesApi.active, enabled, staleTime: 5000 });
+  // Une erreur (réseau, 5xx) ne doit jamais être interprétée comme « aucune course » : on
+  // réessaie toutes les 10 s, et on revérifie régulièrement même sans course connue (course
+  // acceptée depuis un autre appareil, session restaurée, panne passagère de l'API).
+  const q = useQuery({
+    queryKey: qk.activeRide,
+    queryFn: ridesApi.active,
+    enabled,
+    staleTime: 5000,
+    retry: 3,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: (query) => (query.state.status === 'error' ? 10_000 : query.state.data ? false : 60_000),
+  });
   useWsEvent('ride.status_updated', (ride) => {
     qc.setQueryData<Ride | null>(qk.activeRide, (old) => {
       const active = ['requested', 'dispatching', 'accepted', 'arrived', 'in_progress'].includes(ride.status);
