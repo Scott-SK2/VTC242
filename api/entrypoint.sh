@@ -16,6 +16,13 @@ if [ "${SEED_DEMO:-0}" = "1" ]; then
 fi
 if [ "${RUN_WORKER_IN_WEB:-0}" = "1" ]; then
   echo "Démarrage de Celery worker + beat dans le conteneur web (mode test)"
-  celery -A config worker -B -l info --concurrency "${CELERY_CONCURRENCY:-1}" &
+  # relancé automatiquement s'il s'arrête (manque de mémoire, perte de Redis…)
+  (
+    while true; do
+      celery -A config worker -B -l info --concurrency "${CELERY_CONCURRENCY:-1}"
+      echo "Worker Celery arrêté (code $?) : redémarrage dans 5 s"
+      sleep 5
+    done
+  ) &
 fi
 exec uvicorn config.asgi:application --host 0.0.0.0 --port "$PORT" --workers "$WEB_WORKERS"

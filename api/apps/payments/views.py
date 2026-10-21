@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
@@ -83,6 +84,36 @@ class PayoutView(APIView):
         return Response(TransactionSerializer(tx).data, status=202)
 
 
+def _client_ip(request) -> str:
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
+def _webhook_ip_allowed(request) -> bool:
+    """Liste blanche IP / CIDR des serveurs opérateurs (PAYMENT_WEBHOOK_ALLOWED_IPS)."""
+    import ipaddress
+    import logging
+
+    allowed = settings.PAYMENT_WEBHOOK_ALLOWED_IPS
+    if not allowed:
+        return True
+    ip = _client_ip(request)
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    for item in allowed:
+        try:
+            if addr in ipaddress.ip_network(item.strip(), strict=False):
+                return True
+        except ValueError:
+            continue
+    logging.getLogger("vtc242.payments").warning("Webhook refusé : IP %s hors liste blanche", ip)
+    return False
+
+
 class WebhookView(APIView):
     """Réponse 200 immédiate, traitement asynchrone (section 8.1)."""
 
@@ -94,6 +125,8 @@ class WebhookView(APIView):
     def post(self, request, operator: str):
         if operator not in ("mtn", "airtel"):
             return Response(status=404)
+        if not _webhook_ip_allowed(request):
+            return Response(status=403)
         headers = {k: v for k, v in request.headers.items()}
         process_webhook.delay(operator, headers, request.body.decode("utf-8", "ignore"))
         return Response({"received": True})

@@ -22,3 +22,4 @@ export * from './ProfileForm';
 export * from './PageHeader';
 export * from './GeoSim';
 export * from './NameCard';
+export * from './TripTimer';

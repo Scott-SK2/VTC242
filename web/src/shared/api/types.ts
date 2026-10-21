@@ -347,7 +347,15 @@ export interface Fleet {
 }
 
 export type AlertType =
-  'deviation' | 'emergency' | 'otp_locked' | 'detour' | 'position_lost' | 'price_capped';
+  | 'deviation'
+  | 'emergency'
+  | 'otp_locked'
+  | 'detour'
+  | 'position_lost'
+  | 'price_capped'
+  | 'balance_mismatch'
+  | 'no_drivers_online'
+  | 'high_cancellation';
 
 export interface Alert {
   id: string;

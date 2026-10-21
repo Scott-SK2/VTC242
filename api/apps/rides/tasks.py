@@ -33,8 +33,18 @@ def expire_offers() -> int:
 
 @shared_task(name="rides.dispatch_watchdog")
 def dispatch_watchdog() -> int:
+    import time
+
+    from django.core.cache import cache
+
+    from apps.common.views import WORKER_HEARTBEAT_KEY
+
     from . import dispatch
 
+    try:
+        cache.set(WORKER_HEARTBEAT_KEY, str(time.time()), 120)  # lu par /health/
+    except Exception:  # noqa: BLE001
+        pass
     return dispatch.watchdog()
 
 

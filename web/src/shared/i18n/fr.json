@@ -537,7 +537,10 @@
         "otp_locked": "Code verrouillé",
         "detour": "Détour signalé",
         "position_lost": "Position perdue",
-        "price_capped": "Prix plafonné"
+        "price_capped": "Prix plafonné",
+        "balance_mismatch": "Écart de solde",
+        "no_drivers_online": "Aucun chauffeur en ligne",
+        "high_cancellation": "Taux d'annulation élevé"
       }
     },
     "rides": {
@@ -716,5 +719,13 @@
     "firstName": "Prénom",
     "lastName": "Nom",
     "nameSaved": "Merci, votre nom est enregistré."
+  },
+  "tripTimer": {
+    "waiting": "Attente : {{time}}",
+    "waitingFree": "gratuit encore {{left}}",
+    "waitingPaid": "temps d'attente facturé",
+    "elapsed": "En course depuis {{time}}",
+    "remaining": "arrivée estimée dans {{time}}",
+    "overdue": "durée prévue dépassée"
   }
 }

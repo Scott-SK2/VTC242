@@ -16,6 +16,7 @@ import {
   errorMessage,
   Avatar,
   EmergencySheet,
+  TripTimer,
 } from '@/shared/ui';
 import type { GeoFix } from '@/shared/utils/geolocation';
 import { distanceM, formatDistance, googleMapsUrl } from '@/shared/utils/geo';
@@ -198,6 +199,7 @@ export function ActiveRide({
             </>
           ) : (
             <div className="rounded-2xl border-2 border-code p-4">
+              <TripTimer ride={ride} className="mb-3" />
               <div className="font-extrabold">{t('driver.ride.codeTitle')}</div>
               <p className="text-sm text-gray-600 mb-2">
                 {t('driver.ride.codeHint')}{' '}
@@ -254,6 +256,7 @@ export function ActiveRide({
           >
             🧭 {t('driver.ride.openMaps')} · {t('driver.ride.navigateToDropoff')}
           </a>
+          <TripTimer ride={ride} className="mb-3" />
           {ride.payment_method === 'cash' && (
             <p className="rounded-xl bg-code-light p-3 text-sm mb-2">
               {t('driver.ride.cash', {

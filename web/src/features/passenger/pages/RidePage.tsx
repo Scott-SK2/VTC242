@@ -18,6 +18,7 @@ import {
   errorMessage,
   Badge,
   rideTone,
+  TripTimer,
 } from '@/shared/ui';
 import { qk, useRide, useWallet } from '@/shared/api/hooks';
 import { ridesApi } from '@/shared/api/endpoints';
@@ -296,6 +297,7 @@ export default function RidePage() {
               )}
             </div>
             <DriverCard driver={ride.driver} />
+            {status === 'arrived' && <TripTimer ride={ride} className="mt-2" />}
             {ride.otp_code && (
               <div
                 className="mt-4 rounded-2xl bg-code p-4 text-center"
@@ -342,6 +344,7 @@ export default function RidePage() {
                 {t('passenger.trip.eta', { eta: formatDuration(eta) })}
               </p>
             )}
+            <TripTimer ride={ride} className="mt-2" />
             {ride.driver && (
               <div className="mt-3">
                 <DriverCard driver={ride.driver} />
