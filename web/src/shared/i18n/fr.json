@@ -91,7 +91,8 @@
     "invalidCodeShort": "Code incorrect.",
     "locked": "Trop d'essais : numéro bloqué pendant 15 minutes.",
     "tooMany": "Trop de demandes : attendez 15 minutes avant un nouvel envoi.",
-    "debugCode": "Code de test (mode local) : {{code}}",
+    "debugCode": "Code de test : {{code}}",
+    "testModeNoSms": "Mode test : aucun SMS n'est envoyé au {{phone}}. Saisissez le code affiché ci-dessous.",
     "terms": "En continuant vous acceptez les conditions d'utilisation de VTC 242.",
     "adminTitle": "Back-office VTC 242",
     "adminSubtitle": "Accès réservé aux équipes admin, finance et support.",
@@ -113,7 +114,7 @@
     "offer": "Simuler ma position à Brazzaville",
     "outOfZone": "Vous êtes hors de la zone de service (Brazzaville).",
     "noGps": "Position GPS indisponible.",
-    "active": "Position simulée · touchez la carte pour la déplacer",
+    "active": "Position simulée (test) · touchez la carte pour la déplacer.",
     "current": "Position actuelle : {{lat}}, {{lng}}",
     "moved": "Position simulée déplacée"
   },

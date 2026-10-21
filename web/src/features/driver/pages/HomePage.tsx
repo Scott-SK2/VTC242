@@ -161,7 +161,7 @@ export default function DriverHomePage() {
       <div className="absolute top-3 right-3 z-10">
         <EmergencyButton onClick={() => setSos(true)} />
       </div>
-      <div className="absolute top-3 left-3 z-10 mr-[140px] space-y-2">
+      <div className="absolute top-3 left-3 right-[180px] z-10 space-y-2">
         <GeoSimBanner fix={shownFix} gpsError={shownGpsError} />
         <div
           className={`rounded-full px-3 py-1.5 text-sm font-extrabold inline-flex items-center gap-2 shadow ${isOnline ? 'bg-brand text-white' : 'bg-white text-gray-600'}`}

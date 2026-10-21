@@ -172,7 +172,7 @@ export default function HomePage() {
       <div className="absolute top-3 right-3 z-10">
         <EmergencyButton onClick={() => setSos(true)} />
       </div>
-      <div className="absolute top-3 left-3 z-10 mr-[140px]">
+      <div className="absolute top-3 left-3 right-[180px] z-10">
         <GeoSimBanner fix={fix} gpsError={gpsError} />
       </div>
       <EmergencySheet open={sos} onClose={() => setSos(false)} zone={estimate.data?.zone} rideId={null} />
