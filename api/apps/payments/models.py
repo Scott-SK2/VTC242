@@ -19,6 +19,8 @@ class TransactionType(models.TextChoices):
     REFUND = "refund", "Remboursement"
     CANCELLATION_FEE = "cancellation_fee", "Frais d'annulation"
     ADJUSTMENT = "adjustment", "Ajustement"
+    SERVICE_PAYMENT = "service_payment", "Paiement de prestation"  # location, covoiturage
+    SERVICE_EARNING = "service_earning", "Gain de prestation"
 
 
 class TransactionStatus(models.TextChoices):

@@ -25,6 +25,13 @@ const P = {
   rides: () => import('@/features/passenger/pages/RidesPage'),
   profile: () => import('@/features/passenger/pages/ProfilePage'),
   share: () => import('@/features/passenger/pages/SharePage'),
+  services: () => import('@/features/passenger/pages/services/ServicesPage'),
+  rentals: () => import('@/features/passenger/pages/services/RentalsPage'),
+  rental: () => import('@/features/passenger/pages/services/RentalDetailPage'),
+  rentalBookings: () => import('@/features/passenger/pages/services/RentalBookingsPage'),
+  carpool: () => import('@/features/passenger/pages/services/CarpoolPage'),
+  carpoolTrip: () => import('@/features/passenger/pages/services/CarpoolTripPage'),
+  carpoolBookings: () => import('@/features/passenger/pages/services/CarpoolBookingsPage'),
 };
 const D = {
   home: () => import('@/features/driver/pages/HomePage'),
@@ -32,6 +39,9 @@ const D = {
   wallet: () => import('@/features/driver/pages/WalletPage'),
   rides: () => import('@/features/driver/pages/RidesPage'),
   profile: () => import('@/features/driver/pages/ProfilePage'),
+  services: () => import('@/features/driver/pages/services/ServicesPage'),
+  rentals: () => import('@/features/driver/pages/services/RentalsPage'),
+  carpool: () => import('@/features/driver/pages/services/CarpoolPage'),
 };
 const A = {
   layout: () => import('@/features/admin/AdminLayout'),
@@ -50,6 +60,8 @@ const A = {
   finance: () => import('@/features/admin/pages/FinancePage'),
   audit: () => import('@/features/admin/pages/AuditPage'),
   users: () => import('@/features/admin/pages/UsersPage'),
+  rentals: () => import('@/features/admin/pages/RentalsAdminPage'),
+  carpool: () => import('@/features/admin/pages/CarpoolAdminPage'),
 };
 
 const AdminLayoutLazy = lazy(A.layout);
@@ -84,6 +96,13 @@ export const router = createBrowserRouter([
           { path: 'wallet', element: lazyPage(P.wallet) },
           { path: 'rides', element: lazyPage(P.rides) },
           { path: 'profile', element: lazyPage(P.profile) },
+          { path: 'services', element: lazyPage(P.services) },
+          { path: 'rentals', element: lazyPage(P.rentals) },
+          { path: 'rentals/bookings', element: lazyPage(P.rentalBookings) },
+          { path: 'rentals/:id', element: lazyPage(P.rental) },
+          { path: 'carpool', element: lazyPage(P.carpool) },
+          { path: 'carpool/bookings', element: lazyPage(P.carpoolBookings) },
+          { path: 'carpool/:id', element: lazyPage(P.carpoolTrip) },
         ],
       },
       {
@@ -99,6 +118,9 @@ export const router = createBrowserRouter([
           { path: 'wallet', element: lazyPage(D.wallet) },
           { path: 'rides', element: lazyPage(D.rides) },
           { path: 'profile', element: lazyPage(D.profile) },
+          { path: 'services', element: lazyPage(D.services) },
+          { path: 'rentals', element: lazyPage(D.rentals) },
+          { path: 'carpool', element: lazyPage(D.carpool) },
         ],
       },
       { path: '/admin/login', element: lazyPage(A.login) },
@@ -118,6 +140,8 @@ export const router = createBrowserRouter([
           { path: 'zones', element: lazyPage(A.zones) },
           { path: 'pois', element: lazyPage(A.pois) },
           { path: 'disputes', element: lazyPage(A.disputes) },
+          { path: 'rentals', element: lazyPage(A.rentals) },
+          { path: 'carpool', element: lazyPage(A.carpool) },
           { path: 'disputes/:id', element: lazyPage(A.disputes) },
           { path: 'finance', element: lazyPage(A.finance) },
           { path: 'audit', element: lazyPage(A.audit) },

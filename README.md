@@ -22,7 +22,7 @@ docker compose up
 Puis :
 - Application : http://localhost:5173 (passager `/p`, chauffeur `/d`, back-office `/admin`)
 - API et documentation OpenAPI : http://localhost:8000/api/docs/
-- Comptes de démo (`manage.py seed_demo`, exécuté au démarrage) : admin `+242060000001`, finance `+242060000002`, support `+242060000003`, passager `+242069000001` (wallet 25 000 F), chauffeurs `+242061000001` à `+242061000005`, chauffeur en attente `+242061000009`.
+- Comptes de démo (`manage.py seed_demo`, exécuté au démarrage) : admin `+242060000001`, finance `+242060000002`, support `+242060000003`, passager `+242069000001` (wallet 250 000 F), chauffeurs `+242061000001` à `+242061000005`, chauffeur en attente `+242061000009`.
 - Le code OTP est affiché dans les logs de l'API et renvoyé par `POST /auth/otp/request` (`debug_code`) en local.
 - Paiements en `SandboxProvider` : un montant terminant par `1` est refusé, par `2` expire, sinon succès en ~3 s.
 
@@ -53,6 +53,7 @@ Sans Docker : voir [api/README.md](api/README.md) et [web/README.md](web/README.
 - [Runbook d'incident](docs/runbook-incident.md)
 - [Guide utilisateur du back-office](docs/guide-backoffice.md)
 - [Tests de charge k6](docs/tests-de-charge.md)
+- Services complémentaires : location de véhicules (avec / sans chauffeur) et covoiturage, voir le contrat d'API (`/rentals`, `/carpool`) et le guide back-office
 - [Comparatif avec le cahier des charges OBWEMBI](docs/comparatif-obwembi.md)
 - [Cahier des charges v3](docs/cahier-des-charges-v3.pdf) (extrait texte : `docs/cahier-des-charges-v3.txt`)
 

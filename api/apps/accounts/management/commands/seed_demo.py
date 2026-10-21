@@ -222,7 +222,7 @@ class Command(BaseCommand):
         for p in (passenger,):
             wallet = payments.get_wallet(p)
             if wallet.balance == 0:
-                payments.adjust(p, Decimal("25000"), "Crédit de démonstration")
+                payments.adjust(p, Decimal("250000"), "Crédit de démonstration")
 
         for phone, first, last, cat, brand, model, color, plate, taxi_no, lat, lng in DRIVERS:
             user, _ = User.objects.update_or_create(
@@ -317,15 +317,118 @@ class Command(BaseCommand):
                     status=DocumentStatus.PENDING,
                 )
 
+        self._seed_services(admin)
+
         self.stdout.write(self.style.SUCCESS("Données de démo créées."))
         self.stdout.write(
             "Admin : +242060000001 · Finance : +242060000002 · Support : +242060000003"
         )
         self.stdout.write(
-            "Passager : +242069000001 (wallet 25 000 F) · "
+            "Passager : +242069000001 (wallet 250 000 F) · "
             "Chauffeurs : +242061000001 à +242061000005"
         )
         self.stdout.write(
             "OTP : affiché dans les logs de l'API (SMS_BACKEND=console) "
             "ou renvoyé par l'API si DEBUG_OTP_IN_RESPONSE=1"
         )
+        self.stdout.write(
+            "Location : 2 annonces validées (chauffeurs 3 et 5) · "
+            "Covoiturage : 2 trajets à venir (chauffeurs 2 et 4)"
+        )
+
+    def _seed_services(self, admin) -> None:
+        """Annonces de location et trajets de covoiturage de démonstration (idempotent)."""
+        from datetime import timedelta
+
+        from apps.carpool.models import CarpoolTrip, TripStatus
+        from apps.rentals.models import ListingStatus, RentalListing
+
+        def driver_user(phone):
+            return User.objects.filter(phone_number=phone).select_related("driver").first()
+
+        for phone, title, with_driver, without_driver, deposit, desc in (
+            (
+                "+242061000003",
+                "Berline VIP climatisée pour vos événements",
+                Decimal("60000"),
+                None,
+                Decimal("0"),
+                "Chauffeur en tenue, eau fraîche à bord. Mariages, réceptions, transferts.",
+            ),
+            (
+                "+242061000005",
+                "Camionnette de déménagement",
+                Decimal("45000"),
+                Decimal("30000"),
+                Decimal("100000"),
+                "Utilitaire 3 places, 12 m³. Sans chauffeur : permis B de plus de 3 ans.",
+            ),
+        ):
+            user = driver_user(phone)
+            if user is None or user.driver.active_vehicle_id is None:
+                continue
+            RentalListing.objects.update_or_create(
+                owner=user,
+                vehicle=user.driver.active_vehicle,
+                defaults={
+                    "title": title,
+                    "description": desc,
+                    "price_per_day_with_driver": with_driver,
+                    "price_per_day_without_driver": without_driver,
+                    "deposit_amount": deposit,
+                    "min_days": 1,
+                    "photo_url": "https://placehold.co/800x500?text=VTC242",
+                    "status": ListingStatus.APPROVED,
+                    "is_active": True,
+                },
+            )
+
+        now = timezone.now()
+        for phone, o_addr, o_lat, o_lng, d_addr, d_lat, d_lng, hours, seats, price in (
+            (
+                "+242061000002",
+                "Brazzaville, Marché Total",
+                -4.2650,
+                15.2800,
+                "Pointe-Noire, Gare routière",
+                -4.7790,
+                11.8630,
+                30,
+                3,
+                Decimal("15000"),
+            ),
+            (
+                "+242061000004",
+                "Brazzaville, Aéroport Maya-Maya",
+                -4.2517,
+                15.2531,
+                "Kinkala, Centre",
+                -4.3614,
+                14.7639,
+                6,
+                4,
+                Decimal("3000"),
+            ),
+        ):
+            user = driver_user(phone)
+            if user is None:
+                continue
+            exists = CarpoolTrip.objects.filter(
+                driver=user, status=TripStatus.PUBLISHED, departure_at__gt=now
+            ).exists()
+            if exists:
+                continue
+            CarpoolTrip.objects.create(
+                driver=user,
+                vehicle=user.driver.active_vehicle,
+                origin_address=o_addr,
+                origin_location=point(o_lat, o_lng),
+                destination_address=d_addr,
+                destination_location=point(d_lat, d_lng),
+                departure_at=(now + timedelta(hours=hours)).replace(
+                    minute=0, second=0, microsecond=0
+                ),
+                seats_total=seats,
+                price_per_seat=price,
+                description="Départ à l'heure, un bagage par personne.",
+            )

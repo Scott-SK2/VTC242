@@ -16,6 +16,9 @@ from apps.accounts import services as account_services
 from apps.accounts.authentication import issue_tokens
 from apps.accounts.models import TOTP_ROLES, User
 from apps.accounts.serializers import UserSerializer
+from apps.carpool import services as carpool_services
+from apps.carpool.models import CarpoolTrip
+from apps.carpool.serializers import CarpoolTripSerializer
 from apps.common.exceptions import ApiError, NotFound
 from apps.common.sms import send_sms
 from apps.drivers.models import DocumentStatus, Driver, DriverDocument, DriverStatus, Vehicle
@@ -31,6 +34,9 @@ from apps.payments import reconciliation
 from apps.payments import services as payment_services
 from apps.payments.models import PayoutRequest, WalletTransaction
 from apps.payments.serializers import PayoutRequestSerializer, TransactionSerializer
+from apps.rentals import services as rental_services
+from apps.rentals.models import RentalBooking, RentalListing
+from apps.rentals.serializers import RentalBookingSerializer, RentalListingSerializer
 from apps.rides import services as ride_services
 from apps.rides.models import Dispute, Ride
 from apps.rides.serializers import MessageSerializer
@@ -770,3 +776,90 @@ class StaffUserDetailView(StaffView):
         user.save()
         audit(request, "user.update", user, {"role": role, "is_active": user.is_active})
         return Response(UserSerializer(user).data)
+
+
+# --- location de véhicules et covoiturage (services complémentaires) ---------------------
+class RentalListingListView(StaffListView):
+    serializer_class = RentalListingSerializer
+
+    def get_queryset(self):
+        qs = RentalListing.objects.select_related("vehicle", "owner", "owner__driver")
+        p = self.request.query_params
+        if p.get("status"):
+            qs = qs.filter(status__in=p["status"].split(","))
+        if p.get("q"):
+            qs = qs.filter(
+                Q(title__icontains=p["q"])
+                | Q(owner__phone_number__icontains=p["q"])
+                | Q(vehicle__license_plate__icontains=p["q"])
+            )
+        return qs
+
+
+class RentalListingActionView(StaffView):
+    """approve / suspend / reinstate une annonce (journalisé)."""
+
+    roles = ADMIN_SUPPORT
+
+    def post(self, request, listing_id, action):
+        listing = get_object_or_404(
+            RentalListing.objects.select_related("vehicle", "owner", "owner__driver"), pk=listing_id
+        )
+        ser = ReasonSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        before = listing.status
+        listing = rental_services.review_listing(listing, action, ser.validated_data["reason"])
+        audit(request, f"rental_listing.{action}", listing, {"from": before, "to": listing.status})
+        return Response(RentalListingSerializer(listing).data)
+
+
+class RentalBookingListView(StaffListView):
+    serializer_class = RentalBookingSerializer
+
+    def get_queryset(self):
+        qs = RentalBooking.objects.select_related(
+            "listing", "listing__vehicle", "listing__owner", "renter", "owner", "owner__driver"
+        )
+        p = self.request.query_params
+        if p.get("status"):
+            qs = qs.filter(status__in=p["status"].split(","))
+        if p.get("q"):
+            qs = qs.filter(
+                Q(listing__title__icontains=p["q"])
+                | Q(renter__phone_number__icontains=p["q"])
+                | Q(owner__phone_number__icontains=p["q"])
+            )
+        return qs
+
+
+class CarpoolTripListView(StaffListView):
+    serializer_class = CarpoolTripSerializer
+
+    def get_queryset(self):
+        qs = carpool_services.trips_queryset().order_by("-departure_at")
+        p = self.request.query_params
+        if p.get("status"):
+            qs = qs.filter(status__in=p["status"].split(","))
+        if p.get("q"):
+            qs = qs.filter(
+                Q(origin_address__icontains=p["q"])
+                | Q(destination_address__icontains=p["q"])
+                | Q(driver__phone_number__icontains=p["q"])
+            )
+        return qs
+
+
+class CarpoolTripCancelView(StaffView):
+    """Annulation d'un trajet par le support (passagers remboursés), journalisée."""
+
+    roles = ADMIN_SUPPORT
+
+    def post(self, request, trip_id):
+        trip = get_object_or_404(CarpoolTrip.objects.select_related("driver"), pk=trip_id)
+        ser = ReasonSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        reason = ser.validated_data["reason"] or "Annulé par le support"
+        trip = carpool_services.driver_action(trip.id, trip.driver, "cancel", reason)
+        audit(request, "carpool_trip.cancel", trip, {"reason": reason})
+        trip = carpool_services.trips_queryset().get(pk=trip.pk)
+        return Response(CarpoolTripSerializer(trip).data)

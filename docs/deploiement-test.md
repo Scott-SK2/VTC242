@@ -39,7 +39,7 @@ Comptes de démo (créés par `seed_demo`) :
 
 | Rôle | Numéro |
 |---|---|
-| Passager (wallet 25 000 F) | +242069000001 |
+| Passager (wallet 250 000 F) | +242069000001 |
 | Passager | +242069000002 |
 | Chauffeurs validés (taxi, standard, VIP, taxi, utilitaire) | +242061000001 à +242061000005 |
 | Chauffeur en attente de validation | +242061000009 |

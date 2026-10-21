@@ -8,6 +8,8 @@ import type {
   Alert,
   AuditLog,
   AutocompleteResult,
+  CarpoolBooking,
+  CarpoolTrip,
   ChatPreset,
   Dashboard,
   Dispute,
@@ -29,6 +31,10 @@ import type {
   PricingRule,
   PricingRuleInput,
   ReconciliationResult,
+  RentalBooking,
+  RentalListing,
+  RentalListingInput,
+  RentalMode,
   Ride,
   ShareInfo,
   SharedRide,
@@ -248,3 +254,74 @@ export function asList<T>(data: Page<T> | T[] | null | undefined): T[] {
   if (!data) return [];
   return Array.isArray(data) ? data : data.results;
 }
+
+export const rentalsApi = {
+  listings: (params: {
+    mode?: RentalMode;
+    category?: string;
+    q?: string;
+    start_date?: string;
+    end_date?: string;
+    cursor?: string;
+  }) => api.get<Page<RentalListing>>('/rentals/listings', params),
+  listing: (id: string) => api.get<RentalListing>(`/rentals/listings/${id}`),
+  myListings: () => api.get<RentalListing[]>('/rentals/my/listings'),
+  createListing: (body: RentalListingInput) => api.post<RentalListing>('/rentals/my/listings', body),
+  patchListing: (id: string, body: Partial<RentalListingInput>) =>
+    api.patch<RentalListing>(`/rentals/my/listings/${id}`, body),
+  bookings: (params: { status?: string; cursor?: string } = {}) =>
+    api.get<Page<RentalBooking>>('/rentals/bookings', params),
+  booking: (id: string) => api.get<RentalBooking>(`/rentals/bookings/${id}`),
+  book: (body: {
+    listing_id: string;
+    mode: RentalMode;
+    start_date: string;
+    end_date: string;
+    note?: string;
+  }) => api.post<RentalBooking>('/rentals/bookings', body),
+  act: (id: string, action: 'accept' | 'decline' | 'start' | 'complete' | 'cancel', reason = '') =>
+    api.post<RentalBooking>(`/rentals/bookings/${id}/${action}`, { reason }),
+};
+
+export const carpoolApi = {
+  search: (params: {
+    q?: string;
+    date?: string;
+    from_lat?: number;
+    from_lng?: number;
+    to_lat?: number;
+    to_lng?: number;
+    cursor?: string;
+  }) => api.get<Page<CarpoolTrip>>('/carpool/trips', params),
+  trip: (id: string) => api.get<CarpoolTrip>(`/carpool/trips/${id}`),
+  publish: (body: {
+    origin: Place;
+    destination: Place;
+    departure_at: string;
+    seats_total: number;
+    price_per_seat: string;
+    description?: string;
+  }) => api.post<CarpoolTrip>('/carpool/trips/publish', body),
+  myTrips: (params: { status?: string; cursor?: string } = {}) =>
+    api.get<Page<CarpoolTrip>>('/carpool/my/trips', params),
+  act: (id: string, action: 'cancel' | 'start' | 'complete', reason = '') =>
+    api.post<CarpoolTrip>(`/carpool/trips/${id}/${action}`, { reason }),
+  book: (id: string, seats: number) => api.post<CarpoolBooking>(`/carpool/trips/${id}/book`, { seats }),
+  myBookings: (params: { status?: string; cursor?: string } = {}) =>
+    api.get<Page<CarpoolBooking>>('/carpool/bookings', params),
+  cancelBooking: (id: string, reason = '') =>
+    api.post<CarpoolBooking>(`/carpool/bookings/${id}/cancel`, { reason }),
+};
+
+export const adminServicesApi = {
+  rentalListings: (params: { status?: string; q?: string; cursor?: string }) =>
+    api.get<Page<RentalListing>>('/admin/rentals/listings', params),
+  reviewListing: (id: string, action: 'approve' | 'suspend' | 'reinstate', reason = '') =>
+    api.post<RentalListing>(`/admin/rentals/listings/${id}/${action}`, { reason }),
+  rentalBookings: (params: { status?: string; q?: string; cursor?: string }) =>
+    api.get<Page<RentalBooking>>('/admin/rentals/bookings', params),
+  carpoolTrips: (params: { status?: string; q?: string; cursor?: string }) =>
+    api.get<Page<CarpoolTrip>>('/admin/carpool/trips', params),
+  cancelTrip: (id: string, reason: string) =>
+    api.post<CarpoolTrip>(`/admin/carpool/trips/${id}/cancel`, { reason }),
+};

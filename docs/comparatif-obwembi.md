@@ -42,10 +42,13 @@ Analyse du cahier des charges « OBWEMBI » (application de mobilité, Congo-Bra
 7. **Tests de charge k6** : script `tests/load/k6-peak-traffic.js` et guide `docs/tests-de-charge.md`.
 8. **Plan de reprise d'activité** : objectifs RTO / RPO, rôles et procédure dans le runbook.
 
+9. **Location de véhicules avec ou sans chauffeur** et **covoiturage** (OBWEMBI « Services
+   proposés ») : annonces validées au back-office, réservation avec fonds réservés sur le wallet,
+   caution, commission, frais d'annulation tardive, recherche de trajets par texte / date / proximité,
+   réservation de places, clôture par le conducteur. Voir `docs/api-contract.md`.
+
 ## Non repris (volontairement)
 
-- **Covoiturage, location de véhicules avec/sans chauffeur** : hors périmètre V1 ; à évaluer en V3
-  avec la réservation à l'avance déjà prévue.
 - **Nom et prénom du passager visibles du chauffeur** : VTC 242 ne montre que le prénom (vie privée).
 - **Paiement en espèces** : retiré à la demande du client (wallet uniquement).
 - **Stack Node/Go, Flutter, Kubernetes multi-régions, cluster Redis Sentinel** : la V1 est une

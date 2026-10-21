@@ -29,3 +29,25 @@ Accès : `https://app.vtc242.cg/admin` avec un compte `admin`, `finance` ou `sup
 **Réconcilier un opérateur** : Finances → *Importer un relevé* (CSV `operator,external_reference,amount,status`) → lire le rapport : correspondances, écarts (montant ou statut différents), manquants (chez nous ou chez l'opérateur). Corriger par ajustement motivé si nécessaire.
 
 **Retrait au-dessus du seuil** : Finances → Retraits → *Approuver* (lance le virement) ou *Rejeter* (recrédit automatique du chauffeur).
+
+
+## Locations (menu « Locations »)
+
+- **Annonces** : les véhicules proposés à la location par les chauffeurs arrivent en « En attente de
+  validation ». Vérifier le véhicule (déjà contrôlé avec le dossier chauffeur), les tarifs et la
+  description, puis **Valider**. Une annonce validée est visible des clients ; **Suspendre** (motif
+  obligatoire, envoyé au loueur) la retire du catalogue ; **Rétablir** la republie. Un changement de
+  prix ou de véhicule par le loueur repasse l'annonce en attente.
+- **Réservations** : suivi de toutes les locations (période, mode avec / sans chauffeur, client, loueur,
+  montant, statut). Les fonds du client sont réservés à la demande et débités à la clôture par le
+  loueur ; la caution (mode sans chauffeur) est libérée à la clôture. En cas de litige, utiliser
+  l'ajustement de wallet (Finances) avec un motif.
+
+## Covoiturage (menu « Covoiturage »)
+
+- Liste des trajets à venir (publiés, en cours) et historique. Un trajet affiche le conducteur, les
+  places réservées / proposées et le prix par place.
+- **Annuler le trajet** (motif obligatoire) : tous les passagers sont remboursés intégralement et
+  notifiés ; l'action est journalisée dans l'audit.
+- Les annulations tardives des passagers (moins de 2 h avant le départ) retiennent 50 % du montant au
+  profit du conducteur ; les trajets jamais démarrés expirent automatiquement 24 h après l'heure prévue.

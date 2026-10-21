@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import environ
@@ -77,6 +78,8 @@ INSTALLED_APPS = [
     "apps.safety",
     "apps.realtime",
     "apps.backoffice",
+    "apps.rentals",
+    "apps.carpool",
 ]
 
 MIDDLEWARE = [
@@ -179,6 +182,8 @@ CELERY_BEAT_SCHEDULE = {
     "rides-purge-positions": {"task": "rides.purge_old_positions", "schedule": 24 * 3600.0},
     "backoffice-broadcast": {"task": "backoffice.broadcast_dashboard", "schedule": 5.0},
     "backoffice-business-watch": {"task": "backoffice.business_watch", "schedule": 300.0},
+    "rentals-expire-requests": {"task": "rentals.expire_requests", "schedule": 3600.0},
+    "carpool-expire-trips": {"task": "carpool.expire_trips", "schedule": 3600.0},
 }
 
 AUTH_USER_MODEL = "accounts.User"
@@ -295,6 +300,14 @@ DISPATCH_MAX_DURATION_S = env.int(
     "DISPATCH_MAX_DURATION_S", default=max(120, DISPATCH_OFFER_TTL_S * DISPATCH_MAX_OFFERS + 30)
 )
 DISPATCH_RADII_M = (2000, 4000, 6000)
+# Location de véhicules et covoiturage (services complémentaires)
+RENTAL_COMMISSION_RATE = Decimal(env("RENTAL_COMMISSION_RATE", default="0.10"))
+RENTAL_FREE_CANCEL_DAYS = env.int("RENTAL_FREE_CANCEL_DAYS", default=2)
+RENTAL_LATE_CANCEL_FEE_RATE = Decimal(env("RENTAL_LATE_CANCEL_FEE_RATE", default="0.10"))
+CARPOOL_COMMISSION_RATE = Decimal(env("CARPOOL_COMMISSION_RATE", default="0.10"))
+CARPOOL_FREE_CANCEL_HOURS = env.int("CARPOOL_FREE_CANCEL_HOURS", default=2)
+CARPOOL_LATE_CANCEL_FEE_RATE = Decimal(env("CARPOOL_LATE_CANCEL_FEE_RATE", default="0.50"))
+CARPOOL_MAX_SEATS = 8
 # Sans décision du passager après « aucun chauffeur », annulation et libération automatiques
 NO_DRIVER_AUTO_CANCEL_S = env.int("NO_DRIVER_AUTO_CANCEL_S", default=30 * 60)
 DISPATCH_DECLINES_BEFORE_PAUSE = 3

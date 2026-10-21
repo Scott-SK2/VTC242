@@ -6,6 +6,7 @@ const icons = {
   wallet: 'M3 7h18v12H3zM3 10h18M15 14h3',
   rides: 'M4 17h16M6 17l1-6h10l1 6M8 11V7h8v4',
   profile: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-8 8a8 8 0 0 1 16 0',
+  services: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
 };
 
 export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
@@ -15,6 +16,7 @@ export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
     { to: base, label: t('nav.home'), icon: icons.home, end: true },
     { to: `${base}/wallet`, label: t('nav.wallet'), icon: icons.wallet },
     { to: `${base}/rides`, label: t('nav.rides'), icon: icons.rides },
+    { to: `${base}/services`, label: t('nav.services'), icon: icons.services },
     { to: `${base}/profile`, label: t('nav.profile'), icon: icons.profile },
   ];
   return (
@@ -27,7 +29,7 @@ export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
         aria-label="Navigation principale"
         style={{ paddingBottom: 'var(--safe-bottom)' }}
       >
-        <ul className="grid grid-cols-4">
+        <ul className="grid grid-cols-5">
           {items.map((it) => (
             <li key={it.to}>
               <NavLink

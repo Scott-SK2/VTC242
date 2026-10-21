@@ -12,6 +12,8 @@ api_v1 = [
     path("", include("apps.drivers.urls")),
     path("", include("apps.rides.urls")),
     path("", include("apps.payments.urls")),
+    path("", include("apps.rentals.urls")),
+    path("", include("apps.carpool.urls")),
     path("admin/", include("apps.backoffice.urls")),
 ]
 
