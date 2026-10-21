@@ -44,6 +44,7 @@ env = environ.Env(
     AIRTEL_ENV=(str, "sandbox"),
     AIRTEL_BASE_URL=(str, "https://openapiuat.airtel.africa"),
     AIRTEL_WEBHOOK_SECRET=(str, ""),
+    PAYMENT_WEBHOOK_ALLOWED_IPS=(list, []),
     API_BASE_URL=(str, "http://localhost:8000"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
@@ -79,6 +80,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "django.middleware.gzip.GZipMiddleware",  # réponses JSON compressées (3G/4G)
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -176,6 +178,7 @@ CELERY_BEAT_SCHEDULE = {
     "accounts-purge-otp": {"task": "accounts.purge_expired_otp", "schedule": 3600.0},
     "rides-purge-positions": {"task": "rides.purge_old_positions", "schedule": 24 * 3600.0},
     "backoffice-broadcast": {"task": "backoffice.broadcast_dashboard", "schedule": 5.0},
+    "backoffice-business-watch": {"task": "backoffice.business_watch", "schedule": 300.0},
 }
 
 AUTH_USER_MODEL = "accounts.User"
@@ -314,6 +317,9 @@ DEPOSIT_EXPIRE_AFTER_S = 15 * 60
 IDEMPOTENCY_TTL_S = 24 * 3600
 
 PAYMENT_PROVIDER_MODE = env("PAYMENT_PROVIDER_MODE")
+# Adresses / réseaux (CIDR) autorisés à appeler les webhooks ; vide = pas de filtrage IP
+# (la signature HMAC reste vérifiée dans tous les cas)
+PAYMENT_WEBHOOK_ALLOWED_IPS = env("PAYMENT_WEBHOOK_ALLOWED_IPS")
 SMS_BACKEND = env("SMS_BACKEND")
 # SMS « chauffeur trouvé + code de départ » (complément du push, cahier des charges section 2) ;
 # désactivable pour limiter le coût SMS si le push suffit.

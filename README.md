@@ -52,6 +52,8 @@ Sans Docker : voir [api/README.md](api/README.md) et [web/README.md](web/README.
 - [Guide d'exploitation Render / Vercel](docs/exploitation.md)
 - [Runbook d'incident](docs/runbook-incident.md)
 - [Guide utilisateur du back-office](docs/guide-backoffice.md)
+- [Tests de charge k6](docs/tests-de-charge.md)
+- [Comparatif avec le cahier des charges OBWEMBI](docs/comparatif-obwembi.md)
 - [Cahier des charges v3](docs/cahier-des-charges-v3.pdf) (extrait texte : `docs/cahier-des-charges-v3.txt`)
 
 ## Hors périmètre V1 (cahier des charges, section 2)
