@@ -93,12 +93,12 @@ def _ledger(
 
 # --- réservation / libération (course) ---------------------------------------------
 @transaction.atomic
-def reserve(user, amount: Decimal) -> Wallet:
+def reserve(user, amount: Decimal, what: str = "cette course") -> Wallet:
     wallet = _locked(user)
     amount = d(amount)
     if wallet.available < amount:
         raise PaymentRequired(
-            "Solde insuffisant pour réserver cette course.",
+            f"Solde insuffisant pour réserver {what}.",
             details={"required": str(amount), "available": str(wallet.available)},
         )
     wallet.reserved_balance = d(wallet.reserved_balance + amount)
@@ -153,6 +153,62 @@ def settle_ride(ride, final_price: Decimal, commission: Decimal) -> dict:
         result["earning"] = d(final_price - commission)
         _notify(dw)
     return result
+
+
+# --- prestations hors course : location, covoiturage ------------------------------------
+@transaction.atomic
+def settle_service(
+    payer, payee, amount: Decimal, commission: Decimal, *, kind: str, reference: str
+) -> dict:
+    """Règlement d'une prestation (location de véhicule, covoiturage) : le montant réservé est
+    débité du payeur, le prestataire est crédité du montant moins la commission."""
+    amount = d(amount)
+    commission = d(min(commission, amount))
+    meta = {"kind": kind, "reference": reference}
+    pw = _locked(payer)
+    pw.reserved_balance = d(max(ZERO, pw.reserved_balance - amount))
+    charge = d(min(amount, max(ZERO, pw.balance)))
+    if charge > ZERO:
+        _ledger(pw, TransactionType.SERVICE_PAYMENT, -charge, payload=meta)
+    else:
+        pw.save(update_fields=["reserved_balance", "updated_at"])
+    _notify(pw)
+    earning = d(max(ZERO, charge - commission))
+    ow = _locked(payee)
+    _ledger(ow, TransactionType.SERVICE_EARNING, charge, payload=meta)
+    if commission > ZERO:
+        _ledger(ow, TransactionType.COMMISSION, -commission, payload=meta)
+    _notify(ow)
+    return {
+        "charged": charge,
+        "capped": charge < amount,
+        "earning": earning,
+        "commission": commission,
+    }
+
+
+@transaction.atomic
+def charge_service_cancellation(
+    payer, payee, reserved: Decimal, fee: Decimal, *, kind: str, reference: str
+) -> Decimal:
+    """Annulation tardive d'une prestation : la réservation est levée, les frais sont débités
+    au payeur et reversés intégralement au prestataire."""
+    reserved = d(reserved)
+    fee = d(fee)
+    meta = {"kind": kind, "reference": reference}
+    pw = _locked(payer)
+    pw.reserved_balance = d(max(ZERO, pw.reserved_balance - reserved))
+    fee = d(min(fee, max(ZERO, pw.balance)))
+    if fee > ZERO:
+        _ledger(pw, TransactionType.CANCELLATION_FEE, -fee, payload=meta)
+    else:
+        pw.save(update_fields=["reserved_balance", "updated_at"])
+    _notify(pw)
+    if fee > ZERO:
+        ow = _locked(payee)
+        _ledger(ow, TransactionType.SERVICE_EARNING, fee, payload=meta)
+        _notify(ow)
+    return fee
 
 
 @transaction.atomic

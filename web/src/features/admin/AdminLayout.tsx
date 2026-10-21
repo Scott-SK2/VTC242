@@ -16,6 +16,8 @@ const NAV: Array<{ to: string; key: string; roles?: string[]; end?: boolean }> =
   { to: '/admin/pricing', key: 'pricing', roles: ['admin', 'finance'] },
   { to: '/admin/zones', key: 'zones', roles: ['admin'] },
   { to: '/admin/pois', key: 'pois', roles: ['admin', 'support'] },
+  { to: '/admin/rentals', key: 'rentals' },
+  { to: '/admin/carpool', key: 'carpool' },
   { to: '/admin/disputes', key: 'disputes' },
   { to: '/admin/finance', key: 'finance', roles: ['admin', 'finance'] },
   { to: '/admin/audit', key: 'audit', roles: ['admin'] },

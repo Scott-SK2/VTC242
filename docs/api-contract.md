@@ -199,3 +199,54 @@ URL : `{VITE_WS_URL}/ws/?token=<access>`. Trame : `{ "event", "ts", "data" }`. P
 | `admin.dashboard` | serveur → back-office | `{ kpis: Dashboard, alerts: [Alert] }` toutes les 5 s |
 | `admin.fleet` | serveur → back-office | `Fleet` toutes les 5 s |
 | `admin.alert` | serveur → back-office | `Alert` |
+
+
+## Location de véhicules (`/rentals`)
+
+Annonces publiées par un chauffeur validé, visibles des clients après validation au back-office.
+Le client réserve une période ; le prix total (et la caution en mode sans chauffeur) est **réservé**
+sur son wallet à la demande, **débité à la clôture** par le loueur (commission `RENTAL_COMMISSION_RATE`,
+10 % par défaut), la caution est libérée. Annulation : gratuite tant que la demande n'est pas acceptée ;
+après acceptation, frais `RENTAL_LATE_CANCEL_FEE_RATE` (10 %) si le début est à moins de
+`RENTAL_FREE_CANCEL_DAYS` (2) jours. Demande sans réponse à la date de début : `expired`, fonds libérés.
+
+| Route | Acteur | Body | Réponse |
+|---|---|---|---|
+| `GET /rentals/listings?mode=&category=&q=&start_date=&end_date=` | connecté | | page de `RentalListing` validées et actives (dates occupées exclues) |
+| `GET /rentals/listings/{id}` | connecté | | `RentalListing` + `booked_periods[]` |
+| `GET /rentals/my/listings` · `POST` | chauffeur | `{ vehicle_id, title, description?, city?, price_per_day_with_driver?, price_per_day_without_driver?, deposit_amount?, min_days?, photo_url?, is_active? }` | `RentalListing` (`pending` jusqu'à validation) |
+| `PATCH /rentals/my/listings/{id}` | chauffeur | champs ci-dessus | `RentalListing` (un changement de prix ou de véhicule repasse en `pending`) |
+| `GET /rentals/bookings?status=` | passager (ses locations) / chauffeur (demandes reçues) | | page de `RentalBooking` |
+| `POST /rentals/bookings` | passager | `{ listing_id, mode: with_driver\|without_driver, start_date, end_date, note? }` | `RentalBooking` `requested` · `402` solde insuffisant · `409 dates_unavailable` |
+| `GET /rentals/bookings/{id}` | parties | | `RentalBooking` + `cancellation_fee_preview` |
+| `POST /rentals/bookings/{id}/accept\|decline\|start\|complete\|cancel` | loueur | `{ reason? }` | `RentalBooking` |
+| `POST /rentals/bookings/{id}/cancel` | client | `{ reason? }` | `RentalBooking` (`cancellation_fee`) |
+
+Statuts : `requested → accepted → in_progress → completed` ; `declined`, `cancelled_by_renter`,
+`cancelled_by_owner`, `expired`. Événement temps réel `rental.booking_updated` (client et loueur) + push.
+
+## Covoiturage (`/carpool`)
+
+Trajets publiés par un chauffeur validé (véhicule actif). Le passager réserve des places : le montant
+est réservé sur son wallet, débité quand le conducteur clôture le trajet (commission
+`CARPOOL_COMMISSION_RATE`, 10 %). Annulation passager gratuite jusqu'à `CARPOOL_FREE_CANCEL_HOURS` (2 h)
+avant le départ, puis `CARPOOL_LATE_CANCEL_FEE_RATE` (50 %) reversés au conducteur. Annulation du
+trajet par le conducteur (ou le support) : remboursement intégral. Trajet jamais démarré 24 h après
+l'heure prévue : `expired`, fonds libérés.
+
+| Route | Acteur | Body | Réponse |
+|---|---|---|---|
+| `GET /carpool/trips?q=&date=&from_lat=&from_lng=&to_lat=&to_lng=` | connecté | | page de `CarpoolTrip` à venir (rayon 10 km autour des points fournis) |
+| `GET /carpool/trips/{id}` | connecté | | `CarpoolTrip` + `my_booking` (passager) ou `bookings[]` (conducteur) |
+| `POST /carpool/trips/publish` | chauffeur | `{ origin: Place, destination: Place, departure_at, seats_total (1-8), price_per_seat, description? }` | `CarpoolTrip` `published` |
+| `GET /carpool/my/trips?status=` | chauffeur | | page de `CarpoolTrip` |
+| `POST /carpool/trips/{id}/start\|complete\|cancel` | conducteur | `{ reason? }` | `CarpoolTrip` (`start` au plus tôt 1 h avant le départ) |
+| `POST /carpool/trips/{id}/book` | passager | `{ seats }` | `CarpoolBooking` `confirmed` · `409 no_seats` / `duplicate` |
+| `GET /carpool/bookings?status=` | passager | | page de `CarpoolBooking` |
+| `POST /carpool/bookings/{id}/cancel` | passager | `{ reason? }` | `CarpoolBooking` (`cancellation_fee`) |
+
+Événement temps réel `carpool.trip_updated` (conducteur et passagers confirmés) + push.
+
+Back-office : `GET /admin/rentals/listings?status=&q=`, `POST /admin/rentals/listings/{id}/approve|suspend|reinstate`,
+`GET /admin/rentals/bookings`, `GET /admin/carpool/trips?status=&q=`, `POST /admin/carpool/trips/{id}/cancel`.
+Grand livre : types `service_payment` (client) et `service_earning` (prestataire), `payload.kind` = `rental` | `carpool`.

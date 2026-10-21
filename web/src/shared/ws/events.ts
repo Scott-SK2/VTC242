@@ -1,4 +1,14 @@
-import type { Alert, Dashboard, DriverPosition, Fleet, Message, Offer, Ride } from '@/shared/api/types';
+import type {
+  Alert,
+  CarpoolTrip,
+  Dashboard,
+  DriverPosition,
+  Fleet,
+  Message,
+  Offer,
+  RentalBooking,
+  Ride,
+} from '@/shared/api/types';
 
 /** Trames serveur → client, typées par nom d'événement. */
 export interface ServerEvents {
@@ -26,6 +36,8 @@ export interface ServerEvents {
   'admin.dashboard': { kpis: Dashboard; alerts: Alert[] };
   'admin.fleet': Fleet;
   'admin.alert': Alert;
+  'rental.booking_updated': RentalBooking;
+  'carpool.trip_updated': CarpoolTrip;
   /** Événements internes du client. */
   'ws.open': { reconnected: boolean };
   'ws.close': { code: number };

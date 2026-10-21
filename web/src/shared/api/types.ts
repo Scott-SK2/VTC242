@@ -269,7 +269,9 @@ export type TransactionType =
   | 'payout'
   | 'refund'
   | 'cancellation_fee'
-  | 'adjustment';
+  | 'adjustment'
+  | 'service_payment'
+  | 'service_earning';
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'expired';
 export type MobileOperator = 'mtn' | 'airtel';
 
@@ -491,4 +493,136 @@ export interface AuditLog {
 export interface TotpSetup {
   secret: string;
   otpauth_url: string;
+}
+
+// --- Location de véhicules -----------------------------------------------------------
+export type RentalMode = 'with_driver' | 'without_driver';
+export type RentalListingStatus = 'pending' | 'approved' | 'suspended';
+export type RentalBookingStatus =
+  | 'requested'
+  | 'accepted'
+  | 'declined'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled_by_renter'
+  | 'cancelled_by_owner'
+  | 'expired';
+
+export interface PersonSummary {
+  id: string;
+  first_name: string;
+  rating_avg: number | null;
+}
+
+export interface VehicleSummary {
+  id: string;
+  brand: string;
+  model: string;
+  color: string;
+  license_plate: string;
+  category: VehicleCategory;
+  seats: number;
+}
+
+export interface RentalListing {
+  id: string;
+  title: string;
+  description: string;
+  city: string;
+  vehicle: VehicleSummary;
+  owner: PersonSummary;
+  modes: RentalMode[];
+  price_per_day_with_driver: string | null;
+  price_per_day_without_driver: string | null;
+  deposit_amount: string;
+  min_days: number;
+  photo_url: string | null;
+  status: RentalListingStatus;
+  status_reason: string | null;
+  is_active: boolean;
+  created_at: string;
+  booked_periods?: Array<{ start_date: string; end_date: string }>;
+}
+
+export interface RentalListingInput {
+  vehicle_id: string;
+  title: string;
+  description?: string;
+  city?: string;
+  price_per_day_with_driver?: string | null;
+  price_per_day_without_driver?: string | null;
+  deposit_amount?: string;
+  min_days?: number;
+  photo_url?: string | null;
+  is_active?: boolean;
+}
+
+export interface RentalBooking {
+  id: string;
+  listing: RentalListing;
+  renter: PersonSummary;
+  owner: PersonSummary;
+  mode: RentalMode;
+  start_date: string;
+  end_date: string;
+  days: number;
+  price_per_day: string;
+  total_price: string;
+  deposit_amount: string;
+  commission_amount: string | null;
+  cancellation_fee: string;
+  status: RentalBookingStatus;
+  note: string;
+  status_reason: string | null;
+  accepted_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  cancellation_fee_preview?: string;
+}
+
+// --- Covoiturage -----------------------------------------------------------------------
+export type CarpoolTripStatus = 'published' | 'in_progress' | 'completed' | 'cancelled' | 'expired';
+export type CarpoolBookingStatus =
+  'confirmed' | 'completed' | 'cancelled_by_passenger' | 'cancelled_by_driver' | 'expired';
+
+export interface CarpoolTrip {
+  id: string;
+  driver: PersonSummary;
+  vehicle: VehicleSummary | null;
+  origin: Place;
+  destination: Place;
+  departure_at: string;
+  seats_total: number;
+  seats_available: number;
+  seats_booked: number;
+  price_per_seat: string;
+  description: string;
+  status: CarpoolTripStatus;
+  status_reason: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  /** Détail vu par le conducteur. */
+  bookings?: CarpoolBooking[];
+  /** Détail vu par un passager. */
+  my_booking?: CarpoolBooking | null;
+}
+
+export interface CarpoolBooking {
+  id: string;
+  trip?: CarpoolTrip;
+  passenger: PersonSummary;
+  seats: number;
+  price_total: string;
+  commission_amount: string | null;
+  cancellation_fee: string;
+  status: CarpoolBookingStatus;
+  status_reason: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  cancellation_fee_preview?: string;
 }
