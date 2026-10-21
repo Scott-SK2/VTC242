@@ -7,6 +7,7 @@ urlpatterns = [
     path("rides", views.RideListCreateView.as_view(), name="ride-list"),
     path("rides/<uuid:ride_id>", views.RideDetailView.as_view(), name="ride-detail"),
     path("rides/<uuid:ride_id>/cancel", views.CancelView.as_view(), name="ride-cancel"),
+    path("rides/<uuid:ride_id>/retry", views.RetrySearchView.as_view(), name="ride-retry"),
     path("rides/<uuid:ride_id>/accept", views.AcceptView.as_view(), name="ride-accept"),
     path("rides/<uuid:ride_id>/decline", views.DeclineView.as_view(), name="ride-decline"),
     path("rides/<uuid:ride_id>/arrive", views.ArriveView.as_view(), name="ride-arrive"),

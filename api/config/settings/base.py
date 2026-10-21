@@ -292,6 +292,8 @@ DISPATCH_MAX_DURATION_S = env.int(
     "DISPATCH_MAX_DURATION_S", default=max(120, DISPATCH_OFFER_TTL_S * DISPATCH_MAX_OFFERS + 30)
 )
 DISPATCH_RADII_M = (2000, 4000, 6000)
+# Sans décision du passager après « aucun chauffeur », annulation et libération automatiques
+NO_DRIVER_AUTO_CANCEL_S = env.int("NO_DRIVER_AUTO_CANCEL_S", default=30 * 60)
 DISPATCH_DECLINES_BEFORE_PAUSE = 3
 DISPATCH_PAUSE_SECONDS = 120
 
@@ -313,6 +315,9 @@ IDEMPOTENCY_TTL_S = 24 * 3600
 
 PAYMENT_PROVIDER_MODE = env("PAYMENT_PROVIDER_MODE")
 SMS_BACKEND = env("SMS_BACKEND")
+# SMS « chauffeur trouvé + code de départ » (complément du push, cahier des charges section 2) ;
+# désactivable pour limiter le coût SMS si le push suffit.
+RIDE_SMS_ENABLED = env.bool("RIDE_SMS_ENABLED", default=True)
 DEBUG_OTP_IN_RESPONSE = env("DEBUG_OTP_IN_RESPONSE")
 OSRM_URL = env("OSRM_URL")
 PHOTON_URL = env("PHOTON_URL")

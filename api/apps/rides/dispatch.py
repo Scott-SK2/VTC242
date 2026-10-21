@@ -24,8 +24,20 @@ log = logging.getLogger("vtc242.dispatch")
 
 def _candidates(ride: Ride) -> list[tuple[Driver, float]]:
     lat, lng = ride.pickup_location.y, ride.pickup_location.x
-    excluded = set(str(x) for x in ride.offers.values_list("driver_id", flat=True))
     now = timezone.now()
+    # Chauffeurs déjà sollicités pendant la série en cours (une relance repart de zéro)
+    series = ride.offers.all()
+    if ride.dispatch_started_at:
+        series = series.filter(offered_at__gte=ride.dispatch_started_at)
+    excluded = set(str(x) for x in series.values_list("driver_id", flat=True))
+    # Un chauffeur ne reçoit qu'une offre à la fois : ceux qui en ont une en cours sur une
+    # autre course sont écartés (ils redeviennent candidats dès qu'elle est tranchée).
+    excluded |= set(
+        str(x)
+        for x in RideOffer.objects.filter(response__isnull=True, expires_at__gt=now)
+        .exclude(ride=ride)
+        .values_list("driver_id", flat=True)
+    )
     min_rating = ride.zone.min_driver_rating
     for radius in settings.DISPATCH_RADII_M:
         rows = geoindex.nearby(ride.category, lat, lng, radius, count=10)
@@ -164,7 +176,25 @@ def expire_offer_if_due(offer_id) -> bool:
     from .tasks import dispatch_ride
 
     transaction.on_commit(lambda: dispatch_ride.delay(str(offer.ride_id)))
+    transaction.on_commit(lambda: redispatch_waiting(offer.ride_id))
     return True
+
+
+def redispatch_waiting(exclude_ride_id=None) -> int:
+    """Relance les courses en recherche sans offre active (un chauffeur vient de se libérer)."""
+    from .tasks import dispatch_ride
+
+    now = timezone.now()
+    waiting = Ride.objects.filter(status=RideStatus.DISPATCHING).exclude(
+        offers__response__isnull=True, offers__expires_at__gt=now
+    )
+    if exclude_ride_id:
+        waiting = waiting.exclude(pk=exclude_ride_id)
+    n = 0
+    for ride_id in waiting.values_list("id", flat=True).distinct():
+        dispatch_ride.delay(str(ride_id))
+        n += 1
+    return n
 
 
 def current_offer_for(driver: Driver) -> dict | None:
@@ -187,6 +217,13 @@ def watchdog() -> int:
 
     n = 0
     now = timezone.now()
+    stale = Ride.objects.filter(
+        status=RideStatus.NO_DRIVER,
+        cancelled_at__lt=now - timedelta(seconds=settings.NO_DRIVER_AUTO_CANCEL_S),
+    )
+    for ride_id in stale.values_list("id", flat=True):
+        services.auto_cancel_no_driver(ride_id)
+        n += 1
     for ride in Ride.objects.filter(status=RideStatus.DISPATCHING):
         started = ride.dispatch_started_at or ride.requested_at
         if now - started > timedelta(seconds=settings.DISPATCH_MAX_DURATION_S + 30):

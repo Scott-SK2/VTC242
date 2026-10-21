@@ -112,6 +112,7 @@ export const ridesApi = {
     return page;
   },
   cancel: (id: string, reason: string) => api.post<Ride>(`/rides/${id}/cancel`, { reason }),
+  retry: (id: string) => api.post<Ride>(`/rides/${id}/retry`),
   accept: (id: string) => api.post<Ride>(`/rides/${id}/accept`),
   decline: (id: string) => api.post<void>(`/rides/${id}/decline`),
   arrive: (id: string, pos: { lat: number; lng: number }) => api.post<Ride>(`/rides/${id}/arrive`, pos),

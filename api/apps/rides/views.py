@@ -185,6 +185,14 @@ class CompleteView(APIView):
         return _ride_response(ride, request)
 
 
+class RetrySearchView(APIView):
+    permission_classes = (IsPassenger,)
+
+    def post(self, request, ride_id):
+        ride = services.retry_search(ride_id, request.user)
+        return _ride_response(ride, request)
+
+
 class ConfirmArrivalView(APIView):
     permission_classes = (IsPassenger,)
 

@@ -93,6 +93,7 @@ Body : `{ "category", "pricing_rule_id", "payment_method": "wallet"|"cash", "pic
 | `GET /rides/{id}` | passager, chauffeur | | `Ride` (404 si autrui) |
 | `GET /rides?status=` | | `status` = liste séparée par virgules ; `?active=1` renvoie la course active | page de `Ride` |
 | `POST /rides/{id}/cancel` | | `{ "reason" }` | `Ride` (`fee` dans `Ride.cancellation_fee` après) |
+| `POST /rides/{id}/retry` | passager | — | `Ride` (`dispatching`) : relance la recherche après `no_driver`, fonds toujours réservés |
 | `POST /rides/{id}/accept` | chauffeur | | `Ride` · `409` |
 | `POST /rides/{id}/decline` | chauffeur | | `204` |
 | `POST /rides/{id}/arrive` | chauffeur | `{ "lat", "lng" }` | `Ride` · `422 trop loin` |

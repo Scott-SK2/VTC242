@@ -116,6 +116,14 @@ export default function RidePage() {
       setOverlay('none');
     },
   });
+  const retry = useMutation({
+    mutationFn: () => ridesApi.retry(id as string),
+    onSuccess: (r) => {
+      qc.setQueryData(qk.ride(r.id), r);
+      void qc.invalidateQueries({ queryKey: qk.activeRide });
+      toast(t('passenger.searching.retried'), 'success');
+    },
+  });
   const dispute = useMutation({
     mutationFn: () => ridesApi.dispute(id as string, reason),
     onSuccess: (d) => {
@@ -170,7 +178,8 @@ export default function RidePage() {
   const found = status === 'accepted' || status === 'arrived';
   const inTrip = status === 'in_progress';
   const done = status === 'completed';
-  const ended = status === 'no_driver' || status.startsWith('cancelled');
+  const noDriver = status === 'no_driver';
+  const ended = status.startsWith('cancelled');
   const eta = driverPos?.eta_s ?? null;
 
   async function share() {
@@ -410,19 +419,49 @@ export default function RidePage() {
           </div>
         )}
 
+        {noDriver && (
+          <div className="text-center py-2">
+            <Badge tone={rideTone(status)}>{t(`status.${status}`)}</Badge>
+            <h2 className="text-xl font-extrabold mt-2">{t('passenger.searching.noDriver')}</h2>
+            <p className="text-gray-600 mt-1 text-sm">
+              {ride.pickup.address} → {ride.dropoff.address}
+            </p>
+            <p className="text-gray-600 mt-2 text-sm">
+              {t('passenger.searching.noDriverHint', { amount: formatMoney(ride.reserved_amount) })}
+            </p>
+            <Button block className="mt-4" loading={retry.isPending} onClick={() => retry.mutate()}>
+              {t('passenger.searching.retry')}
+            </Button>
+            <Button
+              variant="secondary"
+              block
+              className="mt-2"
+              loading={cancel.isPending}
+              onClick={() => {
+                setReason('passenger_cancelled_no_driver');
+                cancel.mutate();
+              }}
+            >
+              {t('passenger.searching.cancelRefund')}
+            </Button>
+            <ErrorBox error={retry.error ?? cancel.error} />
+          </div>
+        )}
+
         {ended && (
           <div className="text-center py-2">
             <Badge tone={rideTone(status)}>{t(`status.${status}`)}</Badge>
-            <h2 className="text-xl font-extrabold mt-2">
-              {status === 'no_driver' ? t('passenger.searching.noDriver') : t('passenger.done.cancelled')}
-            </h2>
+            <h2 className="text-xl font-extrabold mt-2">{t('passenger.done.cancelled')}</h2>
             {ride.cancellation_fee && Number(ride.cancellation_fee) > 0 && (
               <p className="text-gray-600 mt-1">
                 {t('passenger.done.cancelFee', { fee: formatMoney(ride.cancellation_fee) })}
               </p>
             )}
+            {ride.cancel_reason?.startsWith('Annulation automatique') && (
+              <p className="text-gray-600 mt-1 text-sm">{t('passenger.searching.autoCancelled')}</p>
+            )}
             <Button block className="mt-4" onClick={() => nav('/p', { replace: true })}>
-              {status === 'no_driver' ? t('passenger.searching.retry') : t('passenger.done.home')}
+              {t('passenger.done.home')}
             </Button>
           </div>
         )}
