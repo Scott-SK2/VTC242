@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,8 @@ export default function DriverHomePage() {
   const ride = useRide(activeId);
   const currentRide: Ride | null = ride.data ?? active.data ?? null;
   const [offer, setOffer] = useState<Offer | null>(null);
+  const offerRef = useRef<Offer | null>(null);
+  offerRef.current = offer;
   const [sos, setSos] = useState(false);
   const isOnline = !!profile.data?.is_online;
   const { fix, stale, queued, gpsError, simulated } = useLocationSender(
@@ -65,6 +67,9 @@ export default function DriverHomePage() {
 
   // Offres : WebSocket + repli REST au chargement
   useWsEvent('ride.offer', (o) => {
+    // Une offre à la fois : si une autre est déjà affichée, on garde la première (le serveur
+    // ne devrait pas en envoyer deux, mais on se protège d'un croisement).
+    if (offerRef.current && offerRef.current.ride_id !== o.ride_id) return;
     setOffer({ ...o, deadline: Date.now() + (o.ttl_s ?? 15) * 1000 });
     notify(t('driver.offer.title'), o.pickup.address, { tag: `offer-${o.ride_id}`, silent: true });
     vibrate([200, 100, 200]);

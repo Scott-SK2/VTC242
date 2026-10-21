@@ -312,7 +312,8 @@ def accept(ride_id, driver) -> Ride:
         f"({v.license_plate}). "
         f"Votre code de départ : {ride.otp_code_plain}."
     )
-    transaction.on_commit(lambda: send_sms(ride.passenger.phone_number, sms))
+    if settings.RIDE_SMS_ENABLED:
+        transaction.on_commit(lambda: send_sms(ride.passenger.phone_number, sms))
     transaction.on_commit(
         lambda: send_push(
             ride.passenger,
@@ -322,6 +323,9 @@ def accept(ride_id, driver) -> Ride:
         )
     )
     transaction.on_commit(lambda: broadcast_status(ride))
+    from . import dispatch
+
+    transaction.on_commit(lambda: dispatch.redispatch_waiting(ride.id))
     return ride
 
 
@@ -339,9 +343,11 @@ def decline(ride_id, driver) -> None:
     log_event(ride, "offer.declined", driver.user, {"driver_id": str(driver.id)})
     driver_services.register_decline(driver)
     cache.delete(f"ride:lock:{ride.id}")
+    from . import dispatch
     from .tasks import dispatch_ride
 
     transaction.on_commit(lambda: dispatch_ride.delay(str(ride.id)))
+    transaction.on_commit(lambda: dispatch.redispatch_waiting(ride.id))
 
 
 @transaction.atomic

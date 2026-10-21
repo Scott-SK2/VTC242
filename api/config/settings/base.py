@@ -313,6 +313,9 @@ IDEMPOTENCY_TTL_S = 24 * 3600
 
 PAYMENT_PROVIDER_MODE = env("PAYMENT_PROVIDER_MODE")
 SMS_BACKEND = env("SMS_BACKEND")
+# SMS « chauffeur trouvé + code de départ » (complément du push, cahier des charges section 2) ;
+# désactivable pour limiter le coût SMS si le push suffit.
+RIDE_SMS_ENABLED = env.bool("RIDE_SMS_ENABLED", default=True)
 DEBUG_OTP_IN_RESPONSE = env("DEBUG_OTP_IN_RESPONSE")
 OSRM_URL = env("OSRM_URL")
 PHOTON_URL = env("PHOTON_URL")

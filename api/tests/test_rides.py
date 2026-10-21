@@ -370,3 +370,26 @@ def test_chat_presets_and_share_link(api, driver_api, driver, rules):
     )
     assert em.status_code == 201
     assert Alert.objects.filter(type="emergency", ride_id=ride_id).exists()
+
+
+def test_driver_receives_one_offer_at_a_time(rules, zone, driver):
+    """Deux commandes simultanées : un chauffeur n'a qu'une offre en cours ; la 2e course
+    l'obtient dès que la 1re est tranchée (refus) ; un 2e chauffeur prend l'autre course."""
+    from apps.rides import dispatch
+
+    p1 = make_user("+242069000011", "passenger", first="A")
+    p2 = make_user("+242069000012", "passenger", first="B")
+    payments.adjust(p1, Decimal("10000"), "seed")
+    payments.adjust(p2, Decimal("10000"), "seed")
+    r1 = request_ride(client_for(p1)).data["id"]
+    r2 = request_ride(client_for(p2)).data["id"]
+    assert RideOffer.objects.filter(ride_id=r1, driver=driver, response__isnull=True).exists()
+    assert not RideOffer.objects.filter(ride_id=r2).exists()  # seul chauffeur déjà sollicité
+    # le chauffeur refuse la 1re : la 2e course lui est proposée
+    client_for(driver.user).post(f"/api/v1/rides/{r1}/decline")
+    assert RideOffer.objects.filter(ride_id=r2, driver=driver, response__isnull=True).exists()
+    # un second chauffeur arrive : la 1re course (toujours en recherche) lui est proposée
+    d2 = make_driver("+242061000031", zone, lat=-4.2670, lng=15.2820)
+    dispatch.offer_next(r1)
+    assert RideOffer.objects.filter(ride_id=r1, driver=d2, response__isnull=True).exists()
+    assert RideOffer.objects.filter(ride_id=r2, driver=d2).count() == 0
