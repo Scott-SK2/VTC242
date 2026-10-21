@@ -464,7 +464,8 @@
       "rating": "Note moyenne",
       "vehicle": "Véhicule actif",
       "onboarding": "Mon dossier"
-    }
+    },
+    "activeRideCheckFailed": "Impossible de vérifier si une course est en cours. Nouvel essai automatique…"
   },
   "transactions": {
     "deposit": "Recharge",

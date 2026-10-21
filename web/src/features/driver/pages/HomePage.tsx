@@ -220,6 +220,14 @@ export default function DriverHomePage() {
       )}
 
       <Sheet>
+        {!currentRide && active.isError && (
+          <div className="rounded-xl bg-alert-light text-alert p-3 mb-3 text-sm" role="alert">
+            <div className="font-semibold">{t('driver.activeRideCheckFailed')}</div>
+            <button type="button" className="underline mt-1" onClick={() => void active.refetch()}>
+              {t('common.retry')}
+            </button>
+          </div>
+        )}
         {currentRide ? (
           <ActiveRide
             ride={currentRide}
