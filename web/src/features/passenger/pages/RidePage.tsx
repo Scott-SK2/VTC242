@@ -180,7 +180,14 @@ export default function RidePage() {
 
   return (
     <div className="absolute inset-0">
-      <MapView markers={markers} routes={routes} fit={fit} fitKey={`${ride.id}-${status}`} follow={inTrip} />
+      <MapView
+        showNavigation={false}
+        markers={markers}
+        routes={routes}
+        fit={fit}
+        fitKey={`${ride.id}-${status}`}
+        follow={inTrip}
+      />
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <EmergencyButton onClick={() => setOverlay('sos')} />
       </div>

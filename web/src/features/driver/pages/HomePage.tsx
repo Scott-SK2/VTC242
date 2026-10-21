@@ -25,6 +25,7 @@ import { useLocationSender } from '../useLocationSender';
 import { useWatchPosition } from '@/shared/utils/geolocation';
 import { useGeoSimStore } from '@/shared/store/geoSim';
 import { GeoSimBanner } from '@/shared/ui/GeoSim';
+import { NameCard } from '@/shared/ui/NameCard';
 import { OfferScreen } from '../components/OfferScreen';
 import { ActiveRide } from '../components/ActiveRide';
 
@@ -149,6 +150,7 @@ export default function DriverHomePage() {
   return (
     <div className="absolute inset-0">
       <MapView
+        showNavigation={false}
         center={fix ?? BRAZZAVILLE}
         zoom={14}
         markers={markers}
@@ -219,6 +221,7 @@ export default function DriverHomePage() {
           />
         ) : (
           <div>
+            <NameCard />
             {p.status !== 'approved' && (
               <div className="rounded-xl bg-code-light p-3 mb-3 text-sm">
                 <p className="font-semibold">
