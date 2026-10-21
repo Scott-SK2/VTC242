@@ -31,6 +31,7 @@ import { toast } from '@/shared/store/ui';
 import { DriverCard } from '../components/DriverCard';
 import { installPromptWasShown, isStandalone } from '@/pwa';
 import { subscribePush } from '@/pwa/push';
+import { ensureNotificationPermission, notify } from '@/shared/notify';
 
 type Overlay = 'none' | 'chat' | 'cancel' | 'dispute' | 'sos';
 
@@ -42,6 +43,19 @@ export default function RidePage() {
   const { data: ride, isPending, error, refetch, patch } = useRide(id);
   const wallet = useWallet();
   const [overlay, setOverlay] = useState<Overlay>('none');
+  const [unread, setUnread] = useState(0);
+  useWsEvent('chat.message', (m) => {
+    if (m.ride_id !== id || m.sender_role === 'passenger' || overlay === 'chat') return;
+    setUnread((n) => n + 1);
+    notify(t('chat.newMessage'), m.body, { tag: `chat-${id}` });
+  });
+  useEffect(() => {
+    void ensureNotificationPermission();
+  }, []);
+  const openChat = () => {
+    setUnread(0);
+    setOverlay('chat');
+  };
   const [driverPos, setDriverPos] = useState<
     (LatLng & { heading?: number | null; eta_s?: number | null }) | null
   >(null);
@@ -202,7 +216,7 @@ export default function RidePage() {
             {t('passenger.trip.deviationBody', { distance: `${Math.round(deviation.distance_off_m)} m` })}
           </div>
           <div className="grid gap-2">
-            <button type="button" className="btn bg-white text-alert" onClick={() => setOverlay('chat')}>
+            <button type="button" className="btn bg-white text-alert" onClick={openChat}>
               {t('passenger.trip.write')}
             </button>
             <a
@@ -292,8 +306,13 @@ export default function RidePage() {
               <p className="mt-2 text-sm text-gray-600">{t('passenger.found.waitingHint')}</p>
             )}
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => setOverlay('chat')}>
+              <Button variant="secondary" className="relative" onClick={openChat}>
                 {t('passenger.trip.write')}
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-alert text-white text-xs font-extrabold flex items-center justify-center">
+                    {unread}
+                  </span>
+                )}
               </Button>
               <Button variant="secondary" onClick={() => void share()}>
                 {t('passenger.trip.share')}
@@ -320,8 +339,13 @@ export default function RidePage() {
               </div>
             )}
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => setOverlay('chat')}>
+              <Button variant="secondary" className="relative" onClick={openChat}>
                 {t('passenger.trip.write')}
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-alert text-white text-xs font-extrabold flex items-center justify-center">
+                    {unread}
+                  </span>
+                )}
               </Button>
               <Button variant="secondary" onClick={() => void share()}>
                 {t('passenger.trip.share')}
