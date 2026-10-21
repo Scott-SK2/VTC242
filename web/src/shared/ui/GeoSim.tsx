@@ -37,12 +37,9 @@ export function GeoSimBanner({ fix, gpsError }: { fix: LatLng | null; gpsError: 
 
   if (enabled) {
     return (
-      <div
-        className="rounded-xl bg-code px-3 py-2 text-sm font-semibold text-ink flex items-center gap-2"
-        role="status"
-      >
-        <span>{t('geoSim.active')}</span>
-        <button type="button" className="underline" onClick={disable}>
+      <div className="rounded-xl bg-code px-3 py-1.5 text-xs font-semibold text-ink" role="status">
+        <span>{t('geoSim.active')}</span>{' '}
+        <button type="button" className="underline whitespace-nowrap" onClick={disable}>
           {t('geoSim.disable')}
         </button>
       </div>

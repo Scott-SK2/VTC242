@@ -170,7 +170,11 @@ export function LoginPage() {
         ) : (
           <form onSubmit={verify} noValidate>
             <h2 className="text-xl font-extrabold mb-1">{t('auth.codeTitle')}</h2>
-            <p className="text-gray-600 mb-4">{t('auth.codeSent', { phone: normalizePhone(phone) })}</p>
+            <p className="text-gray-600 mb-4">
+              {debugCode
+                ? t('auth.testModeNoSms', { phone: normalizePhone(phone) })
+                : t('auth.codeSent', { phone: normalizePhone(phone) })}
+            </p>
             {debugCode && (
               <p className="mb-3 rounded-xl bg-code-light px-3 py-2 text-sm" data-testid="debug-code">
                 {t('auth.debugCode', { code: debugCode })}
