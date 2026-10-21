@@ -119,7 +119,9 @@
     "noGps": "Position GPS indisponible.",
     "active": "Position simulée (test) · touchez la carte pour la déplacer.",
     "current": "Position actuelle : {{lat}}, {{lng}}",
-    "moved": "Position simulée déplacée"
+    "moved": "Position simulée déplacée",
+    "goToPickup": "Mode test : me placer au point de prise en charge",
+    "goToDropoff": "Mode test : me placer à la destination"
   },
   "nav": {
     "home": "Accueil",
@@ -185,7 +187,8 @@
       "passenger": "Passager",
       "driver": "Chauffeur",
       "support": "Support"
-    }
+    },
+    "newMessage": "Nouveau message"
   },
   "emergency": {
     "button": "Urgence",

@@ -59,6 +59,9 @@ services:
         value: console
       - key: DEBUG_OTP_IN_RESPONSE
         value: "1"
+      # Durée d'une offre chauffeur (cahier des charges : 15 s ; allongée pour les tests)
+      - key: DISPATCH_OFFER_TTL_S
+        value: "30"
       - key: OSRM_URL
         value: https://router.project-osrm.org
       - key: PHOTON_URL

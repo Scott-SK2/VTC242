@@ -21,6 +21,8 @@ import { BRAZZAVILLE } from '@/shared/utils/geo';
 import { formatTime } from '@/shared/utils/date';
 import { vibrate, beep } from '@/shared/utils/device';
 import { toast } from '@/shared/store/ui';
+import { ensureNotificationPermission, notify } from '@/shared/notify';
+import { subscribePush } from '@/pwa/push';
 import { useLocationSender } from '../useLocationSender';
 import { useWatchPosition } from '@/shared/utils/geolocation';
 import { useGeoSimStore } from '@/shared/store/geoSim';
@@ -55,12 +57,16 @@ export default function DriverHomePage() {
 
   const toggle = useMutation({
     mutationFn: (is_online: boolean) => driversApi.setStatus(is_online),
-    onSuccess: (p) => qc.setQueryData(qk.driverMe, p),
+    onSuccess: (p) => {
+      qc.setQueryData(qk.driverMe, p);
+      if (p.is_online) void ensureNotificationPermission().then((ok) => ok && subscribePush());
+    },
   });
 
   // Offres : WebSocket + repli REST au chargement
   useWsEvent('ride.offer', (o) => {
-    setOffer(o);
+    setOffer({ ...o, deadline: Date.now() + (o.ttl_s ?? 15) * 1000 });
+    notify(t('driver.offer.title'), o.pickup.address, { tag: `offer-${o.ride_id}`, silent: true });
     vibrate([200, 100, 200]);
     beep(2);
   });

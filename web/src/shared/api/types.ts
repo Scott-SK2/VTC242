@@ -286,6 +286,10 @@ export interface Transaction {
 }
 
 export interface Offer {
+  /** Durée de l'offre en secondes (serveur) */
+  ttl_s?: number;
+  /** Échéance calculée côté client (ms epoch) : évite les écarts d'horloge */
+  deadline?: number;
   ride_id: string;
   category: VehicleCategory;
   pickup: Place & { distance_m: number };

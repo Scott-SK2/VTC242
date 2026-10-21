@@ -22,6 +22,9 @@ import { distanceM, formatDistance, googleMapsUrl } from '@/shared/utils/geo';
 import { formatMoney } from '@/shared/utils/money';
 import { formatTime } from '@/shared/utils/date';
 import { toast } from '@/shared/store/ui';
+import { useWsEvent } from '@/shared/ws';
+import { notify } from '@/shared/notify';
+import { useGeoSimStore } from '@/shared/store/geoSim';
 
 const RADIUS_M = 200;
 type Overlay = 'none' | 'chat' | 'detour' | 'cancel' | 'sos';
@@ -43,7 +46,20 @@ export function ActiveRide({
   const [otpError, setOtpError] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [rated, setRated] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const simEnabled = useGeoSimStore((s) => s.enabled);
+  const moveSim = useGeoSimStore((s) => s.move);
   const pos = fix ? { lat: fix.lat, lng: fix.lng } : null;
+  useWsEvent('chat.message', (m) => {
+    if (m.ride_id !== ride.id || m.sender_role === 'driver') return;
+    if (overlay === 'chat') return;
+    setUnread((n) => n + 1);
+    notify(t('chat.newMessage'), m.body, { tag: `chat-${ride.id}` });
+  });
+  const openChat = () => {
+    setUnread(0);
+    setOverlay('chat');
+  };
   const setRide = (r: Ride) => {
     qc.setQueryData(qk.ride(r.id), r);
     qc.setQueryData(
@@ -116,11 +132,16 @@ export function ActiveRide({
           <div className="ml-auto flex gap-2">
             <Button
               variant="secondary"
-              className="px-3"
-              onClick={() => setOverlay('chat')}
+              className="px-3 relative"
+              onClick={openChat}
               aria-label={t('chat.title')}
             >
               💬
+              {unread > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-alert text-white text-xs font-extrabold flex items-center justify-center">
+                  {unread}
+                </span>
+              )}
             </Button>
             <Button
               variant="danger"
@@ -134,6 +155,15 @@ export function ActiveRide({
         </div>
       )}
 
+      {simEnabled && (ride.status === 'accepted' || ride.status === 'in_progress') && (
+        <button
+          type="button"
+          className="w-full rounded-xl bg-code px-3 py-2 mb-3 text-sm font-semibold text-ink"
+          onClick={() => moveSim(ride.status === 'accepted' ? ride.pickup : ride.dropoff)}
+        >
+          {ride.status === 'accepted' ? t('geoSim.goToPickup') : t('geoSim.goToDropoff')}
+        </button>
+      )}
       {(ride.status === 'accepted' || ride.status === 'arrived') && (
         <div>
           <div className="text-sm text-gray-500">{t('driver.offer.pickup')}</div>

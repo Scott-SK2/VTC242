@@ -78,6 +78,7 @@ def offer_payload(ride: Ride, offer: RideOffer) -> dict:
         },
         "estimated_earning": str(offer.estimated_earning),
         "expires_at": offer.expires_at.isoformat(),
+        "ttl_s": settings.DISPATCH_OFFER_TTL_S,
         "planned_distance_m": ride.planned_distance_m,
         "planned_duration_s": ride.planned_duration_s,
     }
