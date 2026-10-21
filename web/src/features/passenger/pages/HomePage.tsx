@@ -22,6 +22,7 @@ import { formatMoney, formatRange } from '@/shared/utils/money';
 import { useWatchPosition } from '@/shared/utils/geolocation';
 import { useGeoSimStore } from '@/shared/store/geoSim';
 import { GeoSimBanner } from '@/shared/ui/GeoSim';
+import { NameCard } from '@/shared/ui/NameCard';
 import { AddressSearch } from '../components/AddressSearch';
 import { toast } from '@/shared/store/ui';
 
@@ -145,6 +146,7 @@ export default function HomePage() {
   return (
     <div className="absolute inset-0">
       <MapView
+        showNavigation={false}
         center={fix ?? BRAZZAVILLE}
         zoom={14}
         markers={markers}
@@ -179,6 +181,7 @@ export default function HomePage() {
 
       {mode === 'idle' && (
         <Sheet title={undefined}>
+          <NameCard />
           {gpsError && (
             <p className="mb-2 rounded-xl bg-gray-100 p-3 text-sm">{t('passenger.home.gpsDenied')}</p>
           )}

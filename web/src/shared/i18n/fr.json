@@ -1,5 +1,8 @@
 {
-  "app": { "name": "VTC 242", "tagline": "Taxis et voitures particulières à Brazzaville" },
+  "app": {
+    "name": "VTC 242",
+    "tagline": "Taxis et voitures particulières à Brazzaville"
+  },
   "common": {
     "loading": "Chargement…",
     "retry": "Réessayer",
@@ -157,8 +160,15 @@
     "moving": "Utilitaire / déménagement",
     "onQuote": "Sur devis"
   },
-  "payment": { "wallet": "Wallet", "cash": "Espèces", "method": "Paiement" },
-  "operators": { "mtn": "MTN MoMo", "airtel": "Airtel Money" },
+  "payment": {
+    "wallet": "Wallet",
+    "cash": "Espèces",
+    "method": "Paiement"
+  },
+  "operators": {
+    "mtn": "MTN MoMo",
+    "airtel": "Airtel Money"
+  },
   "chat": {
     "title": "Messages",
     "placeholder": "Écrire un message…",
@@ -171,7 +181,11 @@
       "traffic": "Il y a des embouteillages, je serai en retard",
       "ok": "D'accord"
     },
-    "sender": { "passenger": "Passager", "driver": "Chauffeur", "support": "Support" }
+    "sender": {
+      "passenger": "Passager",
+      "driver": "Chauffeur",
+      "support": "Support"
+    }
   },
   "emergency": {
     "button": "Urgence",
@@ -429,7 +443,10 @@
       "belowMin": "Montant inférieur au minimum de {{min}}.",
       "aboveCap": "Montant supérieur au plafond de {{cap}}."
     },
-    "rides": { "title": "Mes courses", "earning": "Gain" },
+    "rides": {
+      "title": "Mes courses",
+      "earning": "Gain"
+    },
     "profile": {
       "title": "Mon profil",
       "rating": "Note moyenne",
@@ -451,7 +468,10 @@
     "failed": "Échouée",
     "expired": "Expirée"
   },
-  "rating": { "stars": "{{n}} étoile(s)", "submit": "Envoyer ma note" },
+  "rating": {
+    "stars": "{{n}} étoile(s)",
+    "submit": "Envoyer ma note"
+  },
   "pwa": {
     "installTitle": "Installer VTC 242",
     "installBody": "Ajoutez l'application à votre écran d'accueil pour la retrouver en un geste et recevoir les notifications.",
@@ -623,7 +643,7 @@
     "disputes": {
       "title": "Litiges",
       "open": "Ouverts",
-      "resolved": "Résolus",
+      "resolved": "Litige résolu.",
       "rejected": "Rejetés",
       "planned": "Prévu",
       "actual": "Réel",
@@ -634,7 +654,6 @@
       "resolution": "Décision (visible du passager)",
       "reject": "Rejeter",
       "rejectHint": "Le rejet doit être motivé.",
-      "resolved": "Litige résolu.",
       "reason": "Motif du passager",
       "noSelection": "Sélectionnez un litige."
     },
@@ -677,6 +696,16 @@
       "created": "Utilisateur créé.",
       "totp": "TOTP"
     },
-    "table": { "noRows": "Aucune ligne", "page": "Page" }
+    "table": {
+      "noRows": "Aucune ligne",
+      "page": "Page"
+    }
+  },
+  "profile": {
+    "nameTitle": "Comment vous appelez-vous ?",
+    "nameHint": "Votre prénom est montré à l'autre partie pendant la course ; votre numéro n'est jamais partagé.",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "nameSaved": "Merci, votre nom est enregistré."
   }
 }

@@ -32,6 +32,8 @@ export interface MapViewProps {
   onClick?: (p: LatLng) => void;
   className?: string;
   interactive?: boolean;
+  /** Boutons + / − (inutiles sur mobile : pincement) */
+  showNavigation?: boolean;
   /** Suit le premier marqueur de type `driver` ou `me`. */
   follow?: boolean;
 }

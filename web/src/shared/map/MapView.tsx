@@ -70,6 +70,7 @@ export default function MapView({
   onClick,
   className = '',
   interactive = true,
+  showNavigation = true,
   follow = false,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,7 +91,7 @@ export default function MapView({
       interactive,
       attributionControl: { compact: true },
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    if (showNavigation) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('load', () => {
       loadedRef.current = true;
       syncRoutes(map, routes);
