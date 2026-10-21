@@ -45,7 +45,8 @@ export default function HomePage() {
   const [dropoff, setDropoff] = useState<Place | null>(null);
   const [pickTarget, setPickTarget] = useState<'pickup' | 'dropoff'>('dropoff');
   const [category, setCategory] = useState<VehicleCategory | null>(null);
-  const [payment, setPayment] = useState<PaymentMethod>('wallet');
+  // Décision client : paiement par wallet uniquement (les espèces restent désactivées côté zone)
+  const payment: PaymentMethod = 'wallet';
   const [sos, setSos] = useState(false);
   const wallet = useWallet();
 
@@ -276,12 +277,14 @@ export default function HomePage() {
 
       {mode === 'pick-on-map' && (
         <Sheet collapsible={false}>
-          <p className="font-semibold mb-2">
-            {t('passenger.search.setOnMap')} —{' '}
+          <p className="font-semibold mb-1">
+            {t('passenger.search.notFoundTitle')} —{' '}
             {pickTarget === 'pickup' ? t('passenger.home.pickup') : t('passenger.home.dropoff')}
           </p>
           <p className="text-sm text-gray-600 mb-3">
-            {(pickTarget === 'pickup' ? pickup : dropoff)?.address}
+            {t('passenger.search.notFoundHint', {
+              q: (pickTarget === 'pickup' ? pickup : dropoff)?.address ?? '',
+            })}
           </p>
           <Button variant="secondary" block onClick={() => setMode(pickup && dropoff ? 'estimate' : 'idle')}>
             {t('common.cancel')}
@@ -391,33 +394,14 @@ export default function HomePage() {
               {selected?.on_quote && (
                 <p className="text-sm text-gray-600 mb-2">{t('passenger.estimate.quoteHint')}</p>
               )}
-              <div className="grid grid-cols-2 gap-2 mb-3" role="radiogroup" aria-label={t('payment.method')}>
-                {(['wallet', 'cash'] as PaymentMethod[]).map((m) => {
-                  const cashOff =
-                    m === 'cash' && !(selected?.cash_enabled && estimate.data.zone.cash_enabled);
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      role="radio"
-                      aria-checked={payment === m}
-                      disabled={cashOff}
-                      onClick={() => setPayment(m)}
-                      className={`rounded-xl border p-3 min-h-tap text-left ${payment === m ? 'border-brand bg-brand-light' : 'border-gray-200'} disabled:opacity-50`}
-                    >
-                      <span className="block font-semibold">{t(`payment.${m}`)}</span>
-                      <span className="block text-xs text-gray-600">
-                        {m === 'wallet'
-                          ? `${t('passenger.wallet.available')} : ${formatMoney(wallet.data?.available)}`
-                          : cashOff
-                            ? t('passenger.estimate.cashUnavailable')
-                            : ''}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {payment === 'wallet' && selected && !selected.on_quote && (
+              <p className="text-sm mb-2">
+                <span className="font-semibold">{t('payment.wallet')}</span>
+                <span className="text-gray-600">
+                  {' '}
+                  · {t('passenger.wallet.available')} : {formatMoney(wallet.data?.available)}
+                </span>
+              </p>
+              {selected && !selected.on_quote && (
                 <p className="text-xs text-gray-500 mb-2">
                   {t('passenger.order.reserve', { amount: formatMoney(selected.price_max) })}
                 </p>

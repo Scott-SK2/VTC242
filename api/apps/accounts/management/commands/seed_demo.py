@@ -49,16 +49,35 @@ POIS = [
     ("Kinsoundi", [], -4.3000, 15.2400, "Makélékélé"),
     ("Pont du Djoué", ["Djoué"], -4.3100, 15.2200, "Djoué"),
     ("Centre commercial Casino", ["Casino", "supermarché"], -4.2650, 15.2870, "Centre-ville"),
+    (
+        "Boulevard Denis Sassou Nguesso",
+        ["boulevard Sassou", "boulevard des Armées", "Denis Sassou Nguesso"],
+        -4.2700,
+        15.2950,
+        "Centre-ville",
+    ),
+    ("Avenue de la Paix", ["avenue Paix"], -4.2520, 15.2780, "Moungali"),
+    ("CHU de Brazzaville", ["hôpital", "CHU"], -4.2767, 15.2667, "Centre-ville"),
+    ("Palais des Congrès", ["palais congrès"], -4.2672, 15.2908, "Centre-ville"),
+    ("Port autonome de Brazzaville", ["port", "beach"], -4.2740, 15.2990, "Mpila"),
+    ("Marché de Ouenzé", ["Ouenzé"], -4.2430, 15.2890, "Ouenzé"),
+    ("Bacongo", ["Bacongo quartier"], -4.2900, 15.2600, "Bacongo"),
+    ("Mpila", ["Mpila quartier"], -4.2600, 15.3050, "Mpila"),
+    ("Plateau des 15 ans", ["15 ans", "Plateau 15 ans"], -4.2500, 15.2700, "Moungali"),
+    ("Gare routière de Mikalou", ["Mikalou", "gare routière"], -4.2140, 15.3000, "Talangaï"),
+    ("Stade de la Concorde", ["Kintélé", "stade Kintele"], -4.1289, 15.3514, "Kintélé"),
+    ("Lycée Savorgnan de Brazza", ["lycée Brazza", "Savorgnan"], -4.2733, 15.2808, "Centre-ville"),
+    ("Pont du 15 Août", ["pont 15 août", "viaduc"], -4.2700, 15.2850, "Centre-ville"),
 ]
 
 PRICING = {
     # category: (base, per_km, per_min, minimum, free_wait_s, wait/min,
     #            cancel_fee, commission, cash)
-    VehicleCategory.TAXI: (500, 250, 25, 1000, 180, 50, 500, "0.10", True),
-    VehicleCategory.STANDARD: (700, 300, 30, 1500, 180, 50, 500, "0.15", True),
+    VehicleCategory.TAXI: (500, 250, 25, 1000, 180, 50, 500, "0.10", False),
+    VehicleCategory.STANDARD: (700, 300, 30, 1500, 180, 50, 500, "0.15", False),
     VehicleCategory.VIP: (1500, 500, 50, 3000, 300, 100, 1000, "0.15", False),
     VehicleCategory.WEDDING: (20000, 500, 0, 50000, 600, 0, 5000, "0.15", False),
-    VehicleCategory.MOVING: (3000, 500, 40, 5000, 600, 100, 1000, "0.15", True),
+    VehicleCategory.MOVING: (3000, 500, 40, 5000, 600, 100, 1000, "0.15", False),
 }
 
 DRIVERS = [
@@ -141,7 +160,7 @@ class Command(BaseCommand):
                 "polygon": MultiPolygon(Polygon(BRAZZAVILLE), srid=4326),
                 "emergency_police": "117",
                 "emergency_fire": "118",
-                "cash_enabled": True,
+                "cash_enabled": False,  # décision client : paiement par wallet uniquement
                 "deviation_threshold_m": 300,
                 "deviation_hits": 3,
                 "is_active": True,
