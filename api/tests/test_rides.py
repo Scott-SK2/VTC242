@@ -209,14 +209,42 @@ def test_idempotency_key_returns_same_ride(api, rules, driver):
     assert Ride.objects.count() == 1
 
 
-def test_no_driver_after_all_offers_timeout(api, passenger, rules, zone):
-    """A-04 : aucune réponse → no_driver, fonds libérés, passager informé."""
+def test_no_driver_keeps_reservation_until_retry_or_cancel(api, passenger, rules, zone):
+    """A-04 adapté : aucune réponse → no_driver, fonds CONSERVÉS ; relance possible ;
+    remboursement seulement à l'annulation (ou automatiquement après le délai)."""
     from apps.rides import dispatch
 
     drivers = [make_driver(f"+24206100001{i}", zone, lat=-4.266 + i * 0.001) for i in range(6)]
     r = request_ride(api)
     ride = Ride.objects.get(pk=r.data["id"])
-    assert payments.get_wallet(passenger).reserved_balance > 0
+    reserved = payments.get_wallet(passenger).reserved_balance
+    assert reserved > 0
+    for _ in range(6):
+        offer = RideOffer.objects.filter(ride=ride, response__isnull=True).first()
+        if offer is None:
+            break
+        RideOffer.objects.filter(pk=offer.pk).update(
+            expires_at=timezone.now() - timezone.timedelta(seconds=1)
+        )
+        dispatch.expire_offer_if_due(offer.pk)
+    ride.refresh_from_db()
+    assert ride.status == "no_driver" and ride.offers_count == 5
+    assert payments.get_wallet(passenger).reserved_balance == reserved  # pas de remboursement
+    assert any(
+        e["event"] == "ride.status_updated" and e["data"]["status"] == "no_driver"
+        for e in events.SENT
+    )
+    # toujours la course active du passager : impossible d'en commander une autre
+    assert request_ride(api).status_code == 409
+    # relance : les mêmes chauffeurs sont de nouveau sollicités
+    rr = api.post(f"/api/v1/rides/{ride.id}/retry")
+    assert rr.status_code == 200 and rr.data["status"] == "dispatching"
+    ride.refresh_from_db()
+    assert ride.offers_count == 1 and ride.cancelled_at is None
+    pending = RideOffer.objects.filter(ride=ride, response__isnull=True).first()
+    assert pending is not None and pending.driver in drivers
+    assert payments.get_wallet(passenger).reserved_balance == reserved
+    # nouvel échec, puis annulation par le passager → remboursement
     for _ in range(6):
         offer = RideOffer.objects.filter(ride=ride, response__isnull=True).first()
         if offer is None:
@@ -227,13 +255,40 @@ def test_no_driver_after_all_offers_timeout(api, passenger, rules, zone):
         dispatch.expire_offer_if_due(offer.pk)
     ride.refresh_from_db()
     assert ride.status == "no_driver"
-    assert ride.offers_count == 5
+    c = api.post(f"/api/v1/rides/{ride.id}/cancel", {"reason": "Tant pis"}, format="json")
+    assert c.status_code == 200 and c.data["status"] == "cancelled_by_passenger"
+    assert Decimal(c.data["cancellation_fee"]) == 0
     assert payments.get_wallet(passenger).reserved_balance == 0
-    assert any(
-        e["event"] == "ride.status_updated" and e["data"]["status"] == "no_driver"
-        for e in events.SENT
+    assert payments.get_wallet(passenger).balance == Decimal("10000")
+
+
+def test_no_driver_auto_cancel_after_delay(api, passenger, rules, zone):
+    from django.conf import settings
+
+    from apps.rides import dispatch
+
+    for i in range(5):
+        make_driver(f"+24206100004{i}", zone, lat=-4.266 + i * 0.001)
+    r = request_ride(api)
+    ride = Ride.objects.get(pk=r.data["id"])
+    for _ in range(6):
+        offer = RideOffer.objects.filter(ride=ride, response__isnull=True).first()
+        if offer is None:
+            break
+        RideOffer.objects.filter(pk=offer.pk).update(
+            expires_at=timezone.now() - timezone.timedelta(seconds=1)
+        )
+        dispatch.expire_offer_if_due(offer.pk)
+    ride.refresh_from_db()
+    assert ride.status == "no_driver"
+    Ride.objects.filter(pk=ride.pk).update(
+        cancelled_at=timezone.now()
+        - timezone.timedelta(seconds=settings.NO_DRIVER_AUTO_CANCEL_S + 5)
     )
-    assert len(drivers) == 6
+    dispatch.watchdog()
+    ride.refresh_from_db()
+    assert ride.status == "cancelled_by_passenger" and "automatique" in (ride.cancel_reason or "")
+    assert payments.get_wallet(passenger).reserved_balance == 0
 
 
 def test_decline_passes_to_next_driver_and_pauses_after_three(api, rules, zone):

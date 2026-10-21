@@ -32,6 +32,8 @@ class RideStatus(models.TextChoices):
 ACTIVE_STATUSES = (
     RideStatus.REQUESTED,
     RideStatus.DISPATCHING,
+    # fonds réservés, en attente de la décision du passager (relancer / annuler)
+    RideStatus.NO_DRIVER,
     RideStatus.ACCEPTED,
     RideStatus.ARRIVED,
     RideStatus.IN_PROGRESS,
@@ -40,7 +42,6 @@ TERMINAL_STATUSES = (
     RideStatus.COMPLETED,
     RideStatus.CANCELLED_BY_PASSENGER,
     RideStatus.CANCELLED_BY_DRIVER,
-    RideStatus.NO_DRIVER,
 )
 
 # Machine à états (section 7.2)
@@ -55,6 +56,7 @@ TRANSITIONS: dict[str, tuple[str, ...]] = {
         RideStatus.NO_DRIVER,
         RideStatus.CANCELLED_BY_PASSENGER,
     ),
+    RideStatus.NO_DRIVER: (RideStatus.DISPATCHING, RideStatus.CANCELLED_BY_PASSENGER),
     RideStatus.ACCEPTED: (
         RideStatus.ARRIVED,
         RideStatus.CANCELLED_BY_PASSENGER,

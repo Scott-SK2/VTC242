@@ -245,8 +245,12 @@
       "title": "Recherche d'un chauffeur",
       "subtitle": "Nous contactons les chauffeurs les plus proches…",
       "cancelFree": "Annuler (gratuit)",
-      "noDriver": "Aucun chauffeur n'est disponible pour le moment. Vos fonds ont été libérés.",
-      "retry": "Relancer une commande"
+      "noDriver": "Aucun chauffeur n'a répondu pour le moment",
+      "noDriverHint": "Le montant de {{amount}} reste réservé sur votre portefeuille. Relancez la recherche, ou annulez pour le récupérer. Sans action de votre part, la commande est annulée automatiquement après 30 minutes et vos fonds sont libérés.",
+      "retry": "Relancer la recherche",
+      "retried": "Recherche relancée, nous contactons de nouveau les chauffeurs.",
+      "cancelRefund": "Annuler et récupérer mes fonds",
+      "autoCancelled": "Aucun chauffeur n'a répondu et aucune action n'a été faite : la commande a été annulée automatiquement et vos fonds ont été libérés."
     },
     "found": {
       "title": "Chauffeur trouvé",

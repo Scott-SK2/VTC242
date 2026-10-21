@@ -352,18 +352,58 @@ def decline(ride_id, driver) -> None:
 
 @transaction.atomic
 def no_driver(ride_id) -> Ride | None:
+    """Plus aucun chauffeur à solliciter : la réservation est conservée, le passager choisit
+    entre relancer la recherche et annuler (remboursement)."""
     ride = _locked_ride(ride_id)
     if ride.status not in (RideStatus.REQUESTED, RideStatus.DISPATCHING):
         return ride
-    if ride.payment_method == PaymentMethod.WALLET and ride.reserved_amount:
-        payments.release(ride.passenger, ride.reserved_amount)
     transition(ride, RideStatus.NO_DRIVER, None, {"offers": ride.offers_count})
     transaction.on_commit(lambda: broadcast_status(ride))
     transaction.on_commit(
         lambda: send_push(
-            ride.passenger, "Aucun chauffeur disponible", "Réessayez dans quelques minutes."
+            ride.passenger,
+            "Aucun chauffeur disponible",
+            "Relancez la recherche ou annulez pour récupérer vos fonds.",
+            {"ride_id": str(ride.id)},
         )
     )
+    return ride
+
+
+@transaction.atomic
+def retry_search(ride_id, passenger) -> Ride:
+    """Relance la recherche après « aucun chauffeur » : fonds toujours réservés,
+    nouvelle série d'offres."""
+    ride = _locked_ride(ride_id)
+    if ride.passenger_id != passenger.id:
+        raise NotFound("Course introuvable.")
+    if ride.status != RideStatus.NO_DRIVER:
+        raise Conflict(
+            "La recherche ne peut être relancée que sans chauffeur trouvé.",
+            code="invalid_transition",
+        )
+    ride.offers_count = 0
+    ride.cancelled_at = None
+    transition(ride, RideStatus.DISPATCHING, passenger, {"retry": True})
+    from .tasks import dispatch_ride
+
+    transaction.on_commit(lambda: dispatch_ride.delay(str(ride.id)))
+    transaction.on_commit(lambda: broadcast_status(ride))
+    return ride
+
+
+@transaction.atomic
+def auto_cancel_no_driver(ride_id) -> Ride | None:
+    """Sans décision du passager dans le délai, annulation et libération des fonds."""
+    ride = _locked_ride(ride_id)
+    if ride.status != RideStatus.NO_DRIVER:
+        return ride
+    if ride.payment_method == PaymentMethod.WALLET and ride.reserved_amount:
+        payments.release(ride.passenger, ride.reserved_amount)
+    ride.cancellation_fee = ZERO
+    ride.cancel_reason = "Annulation automatique : aucun chauffeur disponible"
+    transition(ride, RideStatus.CANCELLED_BY_PASSENGER, None, {"auto": True})
+    transaction.on_commit(lambda: broadcast_status(ride))
     return ride
 
 

@@ -292,6 +292,8 @@ DISPATCH_MAX_DURATION_S = env.int(
     "DISPATCH_MAX_DURATION_S", default=max(120, DISPATCH_OFFER_TTL_S * DISPATCH_MAX_OFFERS + 30)
 )
 DISPATCH_RADII_M = (2000, 4000, 6000)
+# Sans décision du passager après « aucun chauffeur », annulation et libération automatiques
+NO_DRIVER_AUTO_CANCEL_S = env.int("NO_DRIVER_AUTO_CANCEL_S", default=30 * 60)
 DISPATCH_DECLINES_BEFORE_PAUSE = 3
 DISPATCH_PAUSE_SECONDS = 120
 

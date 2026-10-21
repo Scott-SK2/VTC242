@@ -25,7 +25,11 @@ log = logging.getLogger("vtc242.dispatch")
 def _candidates(ride: Ride) -> list[tuple[Driver, float]]:
     lat, lng = ride.pickup_location.y, ride.pickup_location.x
     now = timezone.now()
-    excluded = set(str(x) for x in ride.offers.values_list("driver_id", flat=True))
+    # Chauffeurs déjà sollicités pendant la série en cours (une relance repart de zéro)
+    series = ride.offers.all()
+    if ride.dispatch_started_at:
+        series = series.filter(offered_at__gte=ride.dispatch_started_at)
+    excluded = set(str(x) for x in series.values_list("driver_id", flat=True))
     # Un chauffeur ne reçoit qu'une offre à la fois : ceux qui en ont une en cours sur une
     # autre course sont écartés (ils redeviennent candidats dès qu'elle est tranchée).
     excluded |= set(
@@ -213,6 +217,13 @@ def watchdog() -> int:
 
     n = 0
     now = timezone.now()
+    stale = Ride.objects.filter(
+        status=RideStatus.NO_DRIVER,
+        cancelled_at__lt=now - timedelta(seconds=settings.NO_DRIVER_AUTO_CANCEL_S),
+    )
+    for ride_id in stale.values_list("id", flat=True):
+        services.auto_cancel_no_driver(ride_id)
+        n += 1
     for ride in Ride.objects.filter(status=RideStatus.DISPATCHING):
         started = ride.dispatch_started_at or ride.requested_at
         if now - started > timedelta(seconds=settings.DISPATCH_MAX_DURATION_S + 30):
