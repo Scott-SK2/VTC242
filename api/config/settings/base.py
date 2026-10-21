@@ -229,6 +229,10 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL_ORIGINS")  # test en ligne uniquement
 CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://vtc242-web(-[\w-]+)?\.vercel\.app$"]
 CORS_ALLOW_CREDENTIALS = True
+# L'en-tête Idempotency-Key (POST /rides, /wallet/*) doit être autorisé au préflight CORS
+from corsheaders.defaults import default_headers as _cors_default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = [*_cors_default_headers, "idempotency-key"]
 
 # Hôte public injecté par Render (ex. vtc242-api.onrender.com)
 _render_host = env("RENDER_EXTERNAL_HOSTNAME")

@@ -216,7 +216,9 @@
       "free": "Utiliser « {{q}} » tel quel",
       "noResult": "Aucun résultat",
       "poi": "Lieu connu",
-      "setOnMap": "Placer sur la carte"
+      "setOnMap": "Placer sur la carte",
+      "notFoundTitle": "Adresse non reconnue",
+      "notFoundHint": "« {{q}} » ne correspond à aucune adresse connue. Touchez l'emplacement exact sur la carte, ou annulez pour choisir une suggestion de la liste."
     },
     "estimate": {
       "title": "Choisissez votre course",
