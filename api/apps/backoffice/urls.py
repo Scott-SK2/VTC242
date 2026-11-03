@@ -13,6 +13,7 @@ urlpatterns = [
     path("rides/<uuid:ride_id>", views.RideDetailView.as_view()),
     path("rides/<uuid:ride_id>/messages", views.RideMessagesView.as_view()),
     path("rides/<uuid:ride_id>/cancel", views.RideCancelView.as_view()),
+    path("rides/<uuid:ride_id>/refund", views.RideRefundView.as_view()),
     path("drivers", views.DriverListView.as_view()),
     path("drivers/<uuid:driver_id>", views.DriverDetailView.as_view()),
     path("drivers/<uuid:driver_id>/<slug:action>", views.DriverActionView.as_view()),

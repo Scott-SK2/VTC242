@@ -1,13 +1,25 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/shared/api/endpoints';
 import { useWsEvent } from '@/shared/ws';
 import type { AdminRide } from '@/shared/api/types';
 import { MapView, type MapMarker, type MapRoute } from '@/shared/map';
 import { AdminPage, Stat } from '../components';
-import { Badge, rideTone, FullPageSpinner, ErrorBox, Money } from '@/shared/ui';
+import {
+  Badge,
+  Button,
+  rideTone,
+  FullPageSpinner,
+  ErrorBox,
+  Modal,
+  Money,
+  TextAreaField,
+  TextField,
+} from '@/shared/ui';
+import { formatMoney } from '@/shared/utils/money';
+import { toast } from '@/shared/store/ui';
 import { formatDateTime } from '@/shared/utils/date';
 import { formatDistance, formatDuration } from '@/shared/utils/geo';
 import { SupportChat } from '../components/SupportChat';
@@ -27,6 +39,18 @@ export default function RideDetailPage() {
   useWsEvent('ride.status_updated', (r) => {
     if (r.id === id)
       qc.setQueryData<AdminRide>(['admin', 'ride', id], (old) => (old ? { ...old, ...r } : old));
+  });
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const refund = useMutation({
+    mutationFn: () => adminApi.refundRide(id as string, refundAmount, refundReason),
+    onSuccess: (r) => {
+      qc.setQueryData(['admin', 'ride', id], r);
+      setRefundOpen(false);
+      setRefundReason('');
+      toast(t('admin.rides.refunded', { amount: formatMoney(refundAmount) }), 'success');
+    },
   });
   const ride = q.data;
   const actual = useMemo(
@@ -113,6 +137,33 @@ export default function RideDetailPage() {
               <Stat label="Attente / trajet">
                 {formatDuration(ride.waiting_seconds)} / {formatDuration(ride.ride_seconds)}
               </Stat>
+              {ride.charged_amount != null && (
+                <Stat label={t('admin.rides.charged')}>
+                  <Money value={ride.charged_amount} />
+                </Stat>
+              )}
+              {ride.refunded_amount != null && Number(ride.refunded_amount) > 0 && (
+                <Stat label={t('admin.rides.refundedTotal')}>
+                  <Money value={ride.refunded_amount} />
+                </Stat>
+              )}
+              {ride.charged_amount != null &&
+                (role === 'admin' || role === 'finance') &&
+                Number(ride.charged_amount) - Number(ride.refunded_amount ?? 0) > 0 && (
+                  <Button
+                    variant="secondary"
+                    block
+                    className="mt-2"
+                    onClick={() => {
+                      const max = Number(ride.charged_amount) - Number(ride.refunded_amount ?? 0);
+                      const over = Number(ride.charged_amount) - Number(ride.estimated_price_max);
+                      setRefundAmount(String(Math.max(0, Math.min(max, over > 0 ? over : max))));
+                      setRefundOpen(true);
+                    }}
+                  >
+                    {t('admin.rides.refund')}
+                  </Button>
+                )}
               {ride.dispute && (
                 <Stat label={t('nav.disputes')}>
                   <Link to={`/admin/disputes/${ride.dispute.id}`} className="underline">
@@ -178,6 +229,46 @@ export default function RideDetailPage() {
           </div>
         </div>
       </div>
+      <Modal
+        open={refundOpen}
+        onClose={() => setRefundOpen(false)}
+        title={t('admin.rides.refundTitle')}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRefundOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              loading={refund.isPending}
+              disabled={!(Number(refundAmount) > 0) || !refundReason.trim()}
+              onClick={() => refund.mutate()}
+            >
+              {t('admin.rides.refundConfirm', { amount: formatMoney(refundAmount || 0) })}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600 mb-3">
+          {t('admin.rides.refundHint', {
+            charged: formatMoney(ride.charged_amount ?? 0),
+            max: formatMoney(Number(ride.charged_amount ?? 0) - Number(ride.refunded_amount ?? 0)),
+          })}
+        </p>
+        <TextField
+          label={t('common.amount')}
+          type="number"
+          inputMode="numeric"
+          min={1}
+          value={refundAmount}
+          onChange={(e) => setRefundAmount(e.target.value)}
+        />
+        <TextAreaField
+          label={t('common.reason')}
+          value={refundReason}
+          onChange={(e) => setRefundReason(e.target.value)}
+        />
+        <ErrorBox error={refund.error} />
+      </Modal>
     </AdminPage>
   );
 }

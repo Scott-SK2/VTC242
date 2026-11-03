@@ -175,6 +175,8 @@ export const adminApi = {
   ackAlert: (id: string) => api.post<Alert>(`/admin/alerts/${id}/ack`),
   rides: (params: Record<string, string | undefined>) => api.get<Page<AdminRide>>('/admin/rides', params),
   ride: (id: string) => api.get<AdminRide>(`/admin/rides/${id}`),
+  refundRide: (id: string, amount: string, reason: string) =>
+    api.post<AdminRide>(`/admin/rides/${id}/refund`, { amount, reason }),
   rideMessages: (id: string) => api.get<{ results: Message[] }>(`/admin/rides/${id}/messages`),
   sendRideMessage: (id: string, body: string) => api.post<Message>(`/admin/rides/${id}/messages`, { body }),
   drivers: (params: { status?: string; q?: string; cursor?: string }) =>

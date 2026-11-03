@@ -203,6 +203,33 @@ class RideCancelView(StaffView):
         return Response(AdminRideSerializer(ride, context={"detail": True}).data)
 
 
+class RideRefundView(StaffView):
+    """Remboursement d'une course terminée par Admin / Finance (motif obligatoire, audit)."""
+
+    roles = ADMIN_FINANCE
+
+    def post(self, request, ride_id):
+        from decimal import Decimal, InvalidOperation
+
+        ride = get_object_or_404(
+            Ride.objects.select_related("passenger", "driver__user", "zone", "pricing_rule"),
+            pk=ride_id,
+        )
+        reason = str(request.data.get("reason") or "").strip()
+        if not reason:
+            raise ApiError("Motif obligatoire.", code="validation_error", status_code=400)
+        try:
+            amount = Decimal(str(request.data.get("amount")))
+        except (InvalidOperation, TypeError):
+            raise ApiError("Montant invalide.", code="validation_error", status_code=400) from None
+        tx = payment_services.refund_ride(ride, amount, request.user, reason)
+        ride_services.log_event(
+            ride, "ride.refunded", request.user, {"amount": str(tx.amount), "reason": reason}
+        )
+        audit(request, "ride.refund", ride, {"amount": str(tx.amount), "reason": reason})
+        return Response(AdminRideSerializer(ride, context={"detail": True}).data)
+
+
 # --- chauffeurs (F-53) -----------------------------------------------------------------
 class DriverListView(StaffListView):
     serializer_class = AdminDriverSerializer

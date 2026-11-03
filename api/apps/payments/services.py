@@ -262,6 +262,40 @@ def refund(ride, amount: Decimal, actor=None, note: str = "") -> WalletTransacti
     return tx
 
 
+def ride_charged_and_refunded(ride) -> tuple[Decimal, Decimal]:
+    """Montant réellement débité au passager pour la course et total déjà remboursé."""
+    from django.db.models import Sum
+
+    pw = get_wallet(ride.passenger)
+    rows = WalletTransaction.objects.filter(
+        wallet=pw, ride=ride, status=TransactionStatus.COMPLETED
+    )
+    charged = -(
+        rows.filter(type=TransactionType.RIDE_PAYMENT).aggregate(s=Sum("amount"))["s"] or ZERO
+    )
+    refunded = rows.filter(type=TransactionType.REFUND).aggregate(s=Sum("amount"))["s"] or ZERO
+    return d(charged), d(refunded)
+
+
+@transaction.atomic
+def refund_ride(ride, amount: Decimal, actor, reason: str) -> WalletTransaction:
+    """Remboursement par le back-office (geste commercial, incident), hors délai de litige.
+    Plafonné à ce qui a été débité moins les remboursements déjà faits ; même écriture
+    qu'un litige : crédit du passager, reprise du même montant sur le wallet chauffeur."""
+    amount = d(amount)
+    if ride.status != "completed":
+        raise Unprocessable("Seule une course terminée peut être remboursée.", code="invalid_state")
+    charged, refunded = ride_charged_and_refunded(ride)
+    remaining = d(max(ZERO, charged - refunded))
+    if amount <= ZERO or amount > remaining:
+        raise Unprocessable(
+            "Montant de remboursement invalide.",
+            code="invalid_amount",
+            details={"max_refund": str(remaining)},
+        )
+    return refund(ride, amount, actor, reason)
+
+
 @transaction.atomic
 def adjust(user, amount: Decimal, note: str, actor=None) -> WalletTransaction:
     wallet = _locked(user)
