@@ -386,6 +386,9 @@ export interface AdminRide extends Ride {
   positions: DriverPosition[];
   messages: Message[];
   actual_route: LngLatTuple[] | null;
+  /** Course terminée, fiche détaillée : débité au passager / déjà remboursé. */
+  charged_amount?: string | null;
+  refunded_amount?: string | null;
 }
 
 export interface AdminDriver extends User {

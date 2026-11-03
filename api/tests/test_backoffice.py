@@ -252,3 +252,58 @@ def test_dashboard_fleet_alerts_passengers_export(
     assert b.data["is_blocked"] is True
     assert api.get("/api/v1/me").status_code == 401
     assert AuditLog.objects.filter(action="user.block").exists()
+
+
+def test_admin_refund_after_dispute_window(admin_api, api, driver_api, passenger, driver, rules):
+    """Remboursement hors délai de litige par le back-office : plafonné, motif obligatoire,
+    réservé admin / finance, journalisé."""
+    from apps.accounts.models import UserRole
+
+    ride_id = request_ride(api).data["id"]
+    driver_api.post(f"/api/v1/rides/{ride_id}/accept")
+    driver_api.post(
+        f"/api/v1/rides/{ride_id}/arrive",
+        {"lat": PICKUP["lat"], "lng": PICKUP["lng"]},
+        format="json",
+    )
+    code = api.get(f"/api/v1/rides/{ride_id}").data["otp_code"]
+    driver_api.post(f"/api/v1/rides/{ride_id}/start", {"otp_code": code}, format="json")
+    driver_api.post(
+        f"/api/v1/rides/{ride_id}/complete",
+        {"lat": DROPOFF["lat"], "lng": DROPOFF["lng"]},
+        format="json",
+    )
+    ride = Ride.objects.get(pk=ride_id)
+    # délai de contestation dépassé : le passager ne peut plus ouvrir de litige
+    Ride.objects.filter(pk=ride_id).update(
+        dispute_deadline_at=timezone.now() - timezone.timedelta(hours=1)
+    )
+    assert (
+        api.post(f"/api/v1/rides/{ride_id}/dispute", {"reason": "x"}, format="json").status_code
+        == 409
+    )
+
+    detail = admin_api.get(f"/api/v1/admin/rides/{ride_id}")
+    charged = Decimal(detail.data["charged_amount"])
+    assert charged == ride.final_price and Decimal(detail.data["refunded_amount"]) == 0
+    url = f"/api/v1/admin/rides/{ride_id}/refund"
+    assert admin_api.post(url, {"amount": "100"}, format="json").status_code == 400  # motif
+    too_much = admin_api.post(url, {"amount": str(charged + 1), "reason": "x"}, format="json")
+    assert (
+        too_much.status_code == 422 and Decimal(too_much.data["details"]["max_refund"]) == charged
+    )
+
+    p_before = payments.get_wallet(passenger).balance
+    d_before = payments.get_wallet(driver.user).balance
+    r = admin_api.post(url, {"amount": "300", "reason": "Course bloquée"}, format="json")
+    assert r.status_code == 200 and Decimal(r.data["refunded_amount"]) == Decimal("300")
+    assert payments.get_wallet(passenger).balance == p_before + Decimal("300")
+    assert payments.get_wallet(driver.user).balance == d_before - Decimal("300")
+    assert AuditLog.objects.filter(action="ride.refund", target_id=str(ride.id)).exists()
+    # le reste remboursable diminue
+    rest = admin_api.post(url, {"amount": str(charged - 299), "reason": "x"}, format="json")
+    assert rest.status_code == 422
+
+    # le support ne peut pas rembourser
+    support = client_for(make_user("+242060000003", UserRole.SUPPORT), totp_ok=True)
+    assert support.post(url, {"amount": "10", "reason": "x"}, format="json").status_code == 403

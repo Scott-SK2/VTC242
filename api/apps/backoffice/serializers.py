@@ -63,6 +63,8 @@ class AdminRideSerializer(RideSerializer):
     messages = serializers.SerializerMethodField()
     actual_route = serializers.SerializerMethodField()
     offers = serializers.SerializerMethodField()
+    charged_amount = serializers.SerializerMethodField()
+    refunded_amount = serializers.SerializerMethodField()
 
     class Meta(RideSerializer.Meta):
         fields = RideSerializer.Meta.fields + (
@@ -75,6 +77,8 @@ class AdminRideSerializer(RideSerializer):
             "messages",
             "actual_route",
             "offers",
+            "charged_amount",
+            "refunded_amount",
         )
 
     def __init__(self, *args, **kwargs):
@@ -121,6 +125,26 @@ class AdminRideSerializer(RideSerializer):
 
     def get_actual_route(self, obj):
         return line_to_coords(obj.actual_route)
+
+    def _money(self, obj) -> tuple[str, str] | None:
+        if not self._detail() or obj.status != "completed":
+            return None
+        cache = getattr(obj, "_money_cache", None)
+        if cache is None:
+            from apps.payments.services import ride_charged_and_refunded
+
+            charged, refunded = ride_charged_and_refunded(obj)
+            cache = (str(charged), str(refunded))
+            obj._money_cache = cache
+        return cache
+
+    def get_charged_amount(self, obj) -> str | None:
+        m = self._money(obj)
+        return m[0] if m else None
+
+    def get_refunded_amount(self, obj) -> str | None:
+        m = self._money(obj)
+        return m[1] if m else None
 
     def get_offers(self, obj):
         if not self._detail():

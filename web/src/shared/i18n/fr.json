@@ -561,7 +561,14 @@
       "timeline": "Chronologie",
       "noRoute": "Aucun trajet enregistré",
       "supportChat": "Chat support",
-      "supportPlaceholder": "Message du support…"
+      "supportPlaceholder": "Message du support…",
+      "charged": "Débité au passager",
+      "refundedTotal": "Déjà remboursé",
+      "refund": "Rembourser le passager",
+      "refundTitle": "Rembourser le passager",
+      "refundHint": "Débité : {{charged}}. Remboursable au maximum : {{max}}. Le même montant est repris sur le wallet du chauffeur ; l'opération est journalisée.",
+      "refundConfirm": "Rembourser {{amount}}",
+      "refunded": "{{amount}} remboursés au passager."
     },
     "drivers": {
       "title": "Chauffeurs",
