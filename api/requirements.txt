@@ -93,7 +93,7 @@ django-ratelimit==4.1.0
     # via vtc242-api (pyproject.toml)
 django-storages==1.14.6
     # via vtc242-api (pyproject.toml)
-djangorestframework==3.17.2
+djangorestframework==3.18.1
     # via
     #   vtc242-api (pyproject.toml)
     #   djangorestframework-simplejwt
