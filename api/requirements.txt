@@ -73,7 +73,7 @@ cryptography==50.0.2
     #   http-ece
     #   py-vapid
     #   pywebpush
-django==5.1.15
+django==5.2.17
     # via
     #   vtc242-api (pyproject.toml)
     #   channels
