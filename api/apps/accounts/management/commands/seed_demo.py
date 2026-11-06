@@ -377,7 +377,7 @@ class Command(BaseCommand):
                     "price_per_day_without_driver": without_driver,
                     "deposit_amount": deposit,
                     "min_days": 1,
-                    "photo_url": "https://placehold.co/800x500?text=VTC242",
+                    "photo_url": None,
                     "status": ListingStatus.APPROVED,
                     "is_active": True,
                 },

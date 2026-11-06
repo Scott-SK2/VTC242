@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { carpoolApi } from '@/shared/api/endpoints';
 import { Badge, Button, ErrorBox, FullPageSpinner, MobilePage, Modal, SelectField } from '@/shared/ui';
 import { formatMoney } from '@/shared/utils/money';
@@ -15,7 +15,6 @@ const FREE_CANCEL_HOURS = 2;
 export default function CarpoolTripPage() {
   const { t } = useTranslation();
   const { id } = useParams();
-  const nav = useNavigate();
   const qc = useQueryClient();
   useServicesLive();
   const [seats, setSeats] = useState(1);
@@ -57,14 +56,7 @@ export default function CarpoolTripPage() {
     tr.status === 'published' && tr.seats_available > 0 && (!mine || mine.status !== 'confirmed');
   const fee = Number(mine?.cancellation_fee_preview ?? 0);
   return (
-    <MobilePage
-      title={t('carpool.title')}
-      action={
-        <Button variant="ghost" onClick={() => nav(-1)}>
-          {t('common.back')}
-        </Button>
-      }
-    >
+    <MobilePage title={t('carpool.title')} back>
       <div className="rounded-2xl border border-gray-200 p-3">
         <div className="flex items-start justify-between gap-2">
           <div>

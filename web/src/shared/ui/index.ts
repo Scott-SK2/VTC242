@@ -23,3 +23,5 @@ export * from './PageHeader';
 export * from './GeoSim';
 export * from './NameCard';
 export * from './TripTimer';
+export * from './Icon';
+export * from './ModeSwitch';

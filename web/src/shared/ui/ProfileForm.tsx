@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { meApi, uploadFile, authApi } from '@/shared/api/endpoints';
 import { useAuthStore } from '@/shared/store/auth';
 import { Avatar } from './Avatar';
+import { Icon } from './Icon';
+import { ModeSwitch } from './ModeSwitch';
+import { formatDate } from '@/shared/utils/date';
 import { TextField } from './Field';
 import { Button } from './Button';
 import { Modal } from './Modal';
@@ -74,13 +77,18 @@ export function ProfileForm({ photoRequired = false }: { photoRequired?: boolean
   }
 
   if (!user) return null;
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
-      <div className="flex items-center gap-4">
-        <Avatar src={user.photo_url} name={user.first_name || user.phone_number} size={72} />
-        <div>
-          <label className="btn-secondary cursor-pointer">
-            {uploading ? t('driver.onboarding.uploading') : t('passenger.profile.changePhoto')}
+      <section className="card flex items-center gap-4">
+        <div className="relative">
+          <Avatar src={user.photo_url} name={user.first_name || user.phone_number} size={72} />
+          <label
+            className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center cursor-pointer text-gray-700"
+            title={t('passenger.profile.changePhoto')}
+          >
+            {uploading ? <span className="text-xs">…</span> : <Icon name="camera" size={16} />}
+            <span className="sr-only">{t('passenger.profile.changePhoto')}</span>
             <input
               type="file"
               accept="image/*"
@@ -89,39 +97,56 @@ export function ProfileForm({ photoRequired = false }: { photoRequired?: boolean
               disabled={uploading}
             />
           </label>
+        </div>
+        <div className="min-w-0">
+          <div className="text-lg font-extrabold truncate">{fullName || t('passenger.profile.title')}</div>
+          <div className="text-sm text-gray-600">{user.phone_number}</div>
+          <div className="mt-1 text-xs text-gray-500">
+            {t('profile.memberSince', { date: formatDate(user.created_at) })}
+          </div>
           {photoRequired && !user.photo_url && (
-            <p className="text-xs text-alert mt-1">{t('common.required')}</p>
+            <p className="text-xs text-alert mt-1">{t('profile.photoRequired')}</p>
           )}
         </div>
-      </div>
-      <TextField
-        label={t('common.firstName')}
-        value={first}
-        onChange={(e) => setFirst(e.target.value)}
-        autoComplete="given-name"
-      />
-      <TextField
-        label={t('common.lastName')}
-        value={last}
-        onChange={(e) => setLast(e.target.value)}
-        autoComplete="family-name"
-      />
-      <TextField label={t('common.phone')} value={user.phone_number} readOnly disabled />
-      <ErrorBox error={save.error} />
-      <Button type="submit" block loading={save.isPending}>
-        {t('common.save')}
-      </Button>
-      {!isStandalone() && installPrompt && (
-        <Button variant="secondary" block onClick={() => nav('/install')}>
-          {t('passenger.profile.install')}
+      </section>
+      <ModeSwitch />
+      <section className="card">
+        <h2 className="font-extrabold mb-3">{t('profile.info')}</h2>
+        <TextField
+          label={t('common.firstName')}
+          value={first}
+          onChange={(e) => setFirst(e.target.value)}
+          autoComplete="given-name"
+        />
+        <TextField
+          label={t('common.lastName')}
+          value={last}
+          onChange={(e) => setLast(e.target.value)}
+          autoComplete="family-name"
+        />
+        <ErrorBox error={save.error} />
+        <Button type="submit" block loading={save.isPending}>
+          {t('common.save')}
         </Button>
-      )}
-      <Button variant="secondary" block onClick={() => void doLogout()}>
-        {t('common.logout')}
-      </Button>
-      <Button variant="ghost" block className="text-alert" onClick={() => setConfirmDelete(true)}>
-        {t('passenger.profile.deleteTitle')}
-      </Button>
+      </section>
+      <section className="card p-0 overflow-hidden" aria-label={t('profile.account')}>
+        {!isStandalone() && installPrompt && (
+          <button type="button" className="profile-row" onClick={() => nav('/install')}>
+            <Icon name="phone" size={20} className="text-gray-500" />
+            <span className="flex-1">{t('passenger.profile.install')}</span>
+            <Icon name="chevron" size={18} className="text-gray-400" />
+          </button>
+        )}
+        <button type="button" className="profile-row" onClick={() => void doLogout()}>
+          <Icon name="logout" size={20} className="text-gray-500" />
+          <span className="flex-1">{t('common.logout')}</span>
+          <Icon name="chevron" size={18} className="text-gray-400" />
+        </button>
+        <button type="button" className="profile-row text-alert" onClick={() => setConfirmDelete(true)}>
+          <Icon name="trash" size={20} />
+          <span className="flex-1">{t('passenger.profile.deleteTitle')}</span>
+        </button>
+      </section>
       <Modal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}

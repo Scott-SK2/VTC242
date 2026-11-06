@@ -55,6 +55,7 @@ Sans Docker : voir [api/README.md](api/README.md) et [web/README.md](web/README.
 - [Tests de charge k6](docs/tests-de-charge.md)
 - Services complémentaires : location de véhicules (avec / sans chauffeur) et covoiturage, voir le contrat d'API (`/rentals`, `/carpool`) et le guide back-office
 - [Comparatif avec le cahier des charges OBWEMBI](docs/comparatif-obwembi.md)
+- [Reste à faire](docs/reste-a-faire.md)
 - [Cahier des charges v3](docs/cahier-des-charges-v3.pdf) (extrait texte : `docs/cahier-des-charges-v3.txt`)
 
 ## Hors périmètre V1 (cahier des charges, section 2)

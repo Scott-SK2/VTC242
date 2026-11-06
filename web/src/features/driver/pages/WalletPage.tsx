@@ -45,11 +45,6 @@ export default function DriverWalletPage() {
             <span className="opacity-80">{t('passenger.wallet.reserved')}</span>{' '}
             <Money value={wallet?.reserved_balance} className="font-semibold" />
           </div>
-          {wallet?.cash_debt_limit && (
-            <div className="opacity-80">
-              {t('driver.wallet.debt', { limit: formatMoney(wallet.cash_debt_limit) })}
-            </div>
-          )}
         </div>
       </div>
       <h2 className="font-extrabold mb-1">{t('passenger.wallet.history')}</h2>
