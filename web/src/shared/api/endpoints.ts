@@ -70,6 +70,7 @@ export const meApi = {
   patch: (body: Partial<Pick<User, 'first_name' | 'last_name' | 'photo_url' | 'language'>>) =>
     api.patch<User>('/me', body),
   delete: () => api.delete<void>('/me'),
+  switchMode: (role: 'passenger' | 'driver') => api.post<OtpVerifyResponse>('/me/mode', { role }),
   pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string }; user_agent?: string }) =>
     api.post<void>('/me/push-subscriptions', sub),
   createUpload: (kind: 'profile_photo' | 'document', content_type: string, filename: string) =>

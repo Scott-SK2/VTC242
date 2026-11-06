@@ -13,7 +13,7 @@ Jamais de numéro de téléphone de l'autre partie dans aucune réponse ni trame
 | Route | Body | Réponse |
 |---|---|---|
 | `POST /auth/otp/request` | `{ "phone_number": "+242061234567" }` | `202 { "expires_in": 300 }` · `429` au-delà de 3 envois / 15 min |
-| `POST /auth/otp/verify` | `{ "phone_number", "code": "123456", "role": "passenger"\|"driver" (optionnel, création seulement) }` | `200 { "access", "refresh", "user": User }` · `400 code invalide` · `423 bloqué 15 min` |
+| `POST /auth/otp/verify` | `{ "phone_number", "code": "123456", "role": "passenger"\|"driver" (optionnel : mode à ouvrir) }` | `200 { "access", "refresh", "user": User, "mode_note" }` (`mode_note` : raison si le mode demandé n'a pas pu être ouvert, ex. course en cours) · `400 code invalide` · `423 bloqué 15 min` |
 | `POST /auth/token/refresh` | `{ "refresh" }` | `200 { "access", "refresh" }` (rotation) |
 | `POST /auth/logout` | `{ "refresh" }` | `204` |
 
@@ -33,6 +33,7 @@ En local (`SMS_BACKEND=console`), l'OTP est affiché dans les logs de l'API et, 
 | `GET /me` | | `User` |
 | `PATCH /me` | `{ first_name?, last_name?, photo_url?, language? }` | `User` |
 | `DELETE /me` | | `204` (anonymisation) |
+| `POST /me/mode` | `{ "role": "passenger"\|"driver" }` | `{ access, refresh, user }` : bascule du mode actif d'un compte à double profil (nouveaux jetons) ; le premier passage en chauffeur crée le dossier (`pending`) ; quitter le mode chauffeur le met hors ligne · `409 mode_switch_blocked` pendant une course ou un trajet en cours · `403` pour le personnel |
 | `POST /me/push-subscriptions` | `{ endpoint, keys: { p256dh, auth }, user_agent? }` | `201` |
 | `POST /me/uploads` | `{ "kind": "profile_photo"\|"document", "content_type": "image/jpeg", "filename" }` | `{ "upload_url", "file_url", "method": "PUT", "headers": {} }` (URL pré-signée ; en local, l'API accepte le PUT elle-même) |
 

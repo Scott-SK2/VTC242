@@ -7,7 +7,7 @@ import type {
   RentalListing,
   RentalMode,
 } from '@/shared/api/types';
-import { Badge, Button, type BadgeTone } from '@/shared/ui';
+import { Badge, Button, Icon, type BadgeTone } from '@/shared/ui';
 import { formatMoney } from '@/shared/utils/money';
 import { formatDate, formatDateTime } from '@/shared/utils/date';
 import { useWsEvent } from '@/shared/ws';
@@ -57,10 +57,17 @@ export function RentalListingCard({ listing, onOpen }: { listing: RentalListing;
     <button
       type="button"
       onClick={onOpen}
-      className="w-full text-left rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm active:scale-[0.99] transition-transform"
+      className="w-full text-left rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-[0_1px_3px_rgba(17,19,24,0.06)] active:scale-[0.99] transition-transform"
     >
-      {listing.photo_url && (
+      {listing.photo_url && !listing.photo_url.includes('placehold.co') ? (
         <img src={listing.photo_url} alt="" className="w-full h-36 object-cover bg-gray-100" loading="lazy" />
+      ) : (
+        <div className="h-28 bg-gradient-to-br from-brand-light via-white to-gray-100 flex items-center justify-between px-5">
+          <span className="text-xs font-bold uppercase tracking-wider text-brand-dark">
+            {t(`categories.${listing.vehicle.category}`)}
+          </span>
+          <Icon name="car" size={56} className="text-brand/70" />
+        </div>
       )}
       <div className="p-3">
         <div className="flex items-start justify-between gap-2">

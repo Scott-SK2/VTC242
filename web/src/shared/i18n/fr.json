@@ -82,14 +82,12 @@
     "resend": "Renvoyer le code",
     "resendIn": "Renvoyer dans {{s}} s",
     "changePhone": "Changer de numéro",
-    "roleTitle": "Je suis…",
+    "roleTitle": "Je me connecte en tant que…",
     "rolePassenger": "Passager",
     "rolePassengerHint": "Je commande des courses",
     "roleDriver": "Chauffeur",
     "roleDriverHint": "Je conduis un taxi ou une voiture",
-    "roleHint": "Choix uniquement pour une première inscription. Un compte a un seul rôle.",
-    "roleMismatch": "Ce numéro est déjà enregistré comme {{role}} : un compte a un seul rôle. Pour tester l'autre rôle, utilisez un autre numéro (comptes de démo chauffeurs : +242061000001 à +242061000005).",
-    "continueAs": "Continuer comme {{role}}",
+    "roleHint": "Un même compte peut être passager et chauffeur : vous pourrez changer de mode à tout moment depuis votre profil.",
     "invalidCode": "Code incorrect. {{left}} essai(s) restant(s).",
     "invalidCodeShort": "Code incorrect.",
     "locked": "Trop d'essais : numéro bloqué pendant 15 minutes.",
@@ -107,7 +105,9 @@
     "totpCode": "Code TOTP",
     "totpInvalid": "Code TOTP invalide.",
     "totpSetupButton": "Générer une clé",
-    "notAllowed": "Ce compte n'a pas accès à cette interface."
+    "notAllowed": "Ce compte n'a pas accès à cette interface.",
+    "heroTitle": "Vos trajets à Brazzaville, en toute sécurité",
+    "heroPoints": "Chauffeurs vérifiés · Code de départ · Suivi en direct"
   },
   "geoSim": {
     "title": "Mode test : position simulée",
@@ -214,7 +214,11 @@
       "nearby": "{{count}} taxi(s) à proximité",
       "noNearby": "Aucun chauffeur à proximité pour l'instant",
       "activeRide": "Vous avez une course en cours",
-      "openRide": "Voir la course"
+      "openRide": "Voir la course",
+      "greeting": "Bonjour {{name}}",
+      "greetingAnon": "Bonjour",
+      "shortcutRentals": "Louer un véhicule",
+      "shortcutCarpool": "Covoiturage"
     },
     "search": {
       "placeholder": "Adresse, quartier, lieu…",
@@ -750,11 +754,11 @@
     }
   },
   "profile": {
-    "nameTitle": "Comment vous appelez-vous ?",
-    "nameHint": "Votre prénom est montré à l'autre partie pendant la course ; votre numéro n'est jamais partagé.",
-    "firstName": "Prénom",
-    "lastName": "Nom",
-    "nameSaved": "Merci, votre nom est enregistré."
+    "info": "Informations personnelles",
+    "account": "Compte",
+    "memberSince": "Membre depuis {{date}}",
+    "photoRequired": "Ajoutez une photo de profil : elle est obligatoire pour conduire.",
+    "driverActivity": "Mon activité de chauffeur"
   },
   "tripTimer": {
     "waiting": "Attente : {{time}}",
@@ -776,7 +780,12 @@
     "driverRentalsSubtitle": "Publiez une annonce, gérez les demandes",
     "driverCarpool": "Mes trajets en covoiturage",
     "driverCarpoolSubtitle": "Publiez un trajet et remplissez vos places",
-    "walletHint": "Les montants sont réservés sur le wallet du client à la réservation et débités à la fin de la prestation. VTC 242 prélève une commission de {{rate}} %."
+    "walletHint": "Les montants sont réservés sur le wallet du client à la réservation et débités à la fin de la prestation. VTC 242 prélève une commission de {{rate}} %.",
+    "sectionBook": "Réserver",
+    "sectionMine": "Mes réservations",
+    "sectionOffer": "Proposer",
+    "myRentalBookingsHint": "Suivez vos demandes et réservations de véhicules",
+    "myCarpoolBookingsHint": "Vos places réservées et trajets à venir"
   },
   "rentals": {
     "title": "Location de véhicules",
@@ -914,5 +923,24 @@
       "cancelled_by_driver": "Annulée par le conducteur",
       "expired": "Expirée"
     }
+  },
+  "mode": {
+    "title": "Mon mode",
+    "hint": "Un seul compte pour commander des courses et pour conduire. Changez de mode quand vous voulez.",
+    "active": "Mode actuel",
+    "switchTo": "Passer dans ce mode",
+    "confirmTitle": "Passer en mode {{mode}}",
+    "confirm": "Changer de mode",
+    "toDriver": "Vous retrouvez votre espace chauffeur. Vous serez hors ligne : passez en ligne pour recevoir des courses.",
+    "toDriverFirst": "Vous allez créer votre profil chauffeur. Complétez votre dossier (permis, carte grise, assurance, véhicule) : il sera vérifié avant que vous puissiez recevoir des courses.",
+    "toPassenger": "Vous serez mis hors ligne en tant que chauffeur et ne recevrez plus de courses jusqu'à votre retour en mode chauffeur.",
+    "sharedWallet": "Votre wallet est commun aux deux modes.",
+    "switched": "Vous êtes maintenant en mode {{mode}}.",
+    "loginNote": "Mode non changé : {{reason}}"
+  },
+  "empty": {
+    "ridesPassenger": "Vous n'avez pas encore de course.",
+    "ridesDriver": "Vos courses apparaîtront ici.",
+    "orderRide": "Commander une course"
   }
 }

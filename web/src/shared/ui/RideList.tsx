@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { ridesApi } from '@/shared/api/endpoints';
 import { qk } from '@/shared/api/hooks';
 import type { Ride } from '@/shared/api/types';
@@ -28,7 +29,20 @@ export function RideList({ role, onOpen }: { role: 'passenger' | 'driver'; onOpe
       </div>
     );
   if (q.error) return <ErrorBox error={q.error} onRetry={() => void q.refetch()} />;
-  if (!items.length) return <Empty text={t('passenger.rides.empty')} />;
+  if (!items.length)
+    return (
+      <Empty
+        icon="route"
+        text={role === 'passenger' ? t('empty.ridesPassenger') : t('empty.ridesDriver')}
+        action={
+          role === 'passenger' ? (
+            <Link to="/p" className="btn-primary">
+              {t('empty.orderRide')}
+            </Link>
+          ) : undefined
+        }
+      />
+    );
 
   async function receipt(r: Ride) {
     try {

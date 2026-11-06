@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { MapView, type MapMarker } from '@/shared/map';
@@ -25,6 +25,8 @@ import { GeoSimBanner } from '@/shared/ui/GeoSim';
 import { NameCard } from '@/shared/ui/NameCard';
 import { AddressSearch } from '../components/AddressSearch';
 import { toast } from '@/shared/store/ui';
+import { useAuthStore } from '@/shared/store/auth';
+import { Icon } from '@/shared/ui/Icon';
 
 type Mode = 'idle' | 'search-dropoff' | 'search-pickup' | 'pick-on-map' | 'estimate';
 type Tab = 'taxis' | 'cars';
@@ -34,6 +36,7 @@ const TAB_CATEGORIES: Record<Tab, VehicleCategory[]> = {
 };
 
 export default function HomePage() {
+  const user = useAuthStore((st) => st.user);
   const { t } = useTranslation();
   const nav = useNavigate();
   const { data: active } = useActiveRide();
@@ -191,6 +194,18 @@ export default function HomePage() {
               <Spinner size={16} /> {t('passenger.home.locating')}
             </p>
           )}
+          <p className="text-sm text-gray-500 mb-1">
+            {user?.first_name
+              ? t('passenger.home.greeting', { name: user.first_name })
+              : t('passenger.home.greetingAnon')}
+          </p>
+          <button
+            type="button"
+            className="w-full rounded-2xl bg-gray-100 hover:bg-gray-200 transition-colors px-4 min-h-[56px] text-left flex items-center gap-3 font-bold text-lg text-ink"
+            onClick={() => setMode('search-dropoff')}
+          >
+            <Icon name="search" size={22} className="text-brand" /> {t('passenger.home.where')}
+          </button>
           <Tabs
             value={tab}
             onChange={setTab}
@@ -198,15 +213,8 @@ export default function HomePage() {
               { value: 'taxis', label: t('passenger.home.tabTaxis') },
               { value: 'cars', label: t('passenger.home.tabCars') },
             ]}
-            className="mb-3"
+            className="mt-3"
           />
-          <button
-            type="button"
-            className="input text-left text-gray-500 flex items-center gap-2 font-semibold text-lg"
-            onClick={() => setMode('search-dropoff')}
-          >
-            <span aria-hidden="true">🔍</span> {t('passenger.home.where')}
-          </button>
           <button
             type="button"
             className="mt-2 w-full text-left text-sm text-gray-600 min-h-tap flex items-center gap-2"
@@ -223,6 +231,20 @@ export default function HomePage() {
               {nearby > 0 ? t('passenger.home.nearby', { count: nearby }) : t('passenger.home.noNearby')}
             </p>
           )}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              to="/p/rentals"
+              className="flex items-center gap-2 rounded-2xl border border-gray-200 px-3 min-h-tap text-sm font-semibold"
+            >
+              <Icon name="key" size={18} className="text-brand" /> {t('passenger.home.shortcutRentals')}
+            </Link>
+            <Link
+              to="/p/carpool"
+              className="flex items-center gap-2 rounded-2xl border border-gray-200 px-3 min-h-tap text-sm font-semibold"
+            >
+              <Icon name="users" size={18} className="text-blue-700" /> {t('passenger.home.shortcutCarpool')}
+            </Link>
+          </div>
         </Sheet>
       )}
 

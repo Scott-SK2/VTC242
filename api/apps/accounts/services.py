@@ -121,9 +121,78 @@ def verify_otp(
         return _login_or_create(phone, role, device_id)
 
 
+MODES = (UserRole.PASSENGER, UserRole.DRIVER)
+
+
+def mode_switch_blocker(user: User) -> str | None:
+    """Raison empêchant de quitter le mode actuel (course ou trajet en cours), sinon None."""
+    from apps.rides.models import ACTIVE_STATUSES, Ride
+
+    if user.role == UserRole.PASSENGER:
+        if Ride.objects.filter(passenger=user, status__in=ACTIVE_STATUSES).exists():
+            return "Terminez ou annulez votre course en cours avant de changer de mode."
+    elif user.role == UserRole.DRIVER:
+        driver = getattr(user, "driver", None)
+        if driver and Ride.objects.filter(driver=driver, status__in=ACTIVE_STATUSES).exists():
+            return "Terminez votre course en cours avant de changer de mode."
+        from apps.carpool.models import CarpoolTrip, TripStatus
+
+        if CarpoolTrip.objects.filter(driver=user, status=TripStatus.IN_PROGRESS).exists():
+            return "Terminez votre trajet de covoiturage en cours avant de changer de mode."
+    return None
+
+
+def _apply_mode(user: User, target: str) -> None:
+    """Passe le compte en mode passager ou chauffeur (même compte, même wallet). En quittant le
+    mode chauffeur, le chauffeur est mis hors ligne et retiré de l'index géographique."""
+    from apps.drivers import geoindex
+    from apps.drivers.models import Driver
+
+    if user.role == target:
+        return
+    if user.role == UserRole.DRIVER:
+        driver = Driver.objects.filter(user=user).first()
+        if driver:
+            Driver.objects.filter(pk=driver.pk).update(is_online=False, is_available=False)
+            driver.is_online = driver.is_available = False
+            geoindex.remove(driver)
+    if target == UserRole.DRIVER:
+        Driver.objects.get_or_create(user=user)
+    user.role = target
+    user.save(update_fields=["role"])
+
+
+@transaction.atomic
+def switch_mode(user: User, target: str, device_id: str | None = None) -> dict:
+    """Bascule passager ↔ chauffeur d'un même compte (le rôle porte le mode actif)."""
+    if user.role not in MODES or target not in MODES:
+        raise ApiError(
+            "Changement de mode impossible pour ce compte.", code="forbidden", status_code=403
+        )
+    user = User.objects.select_for_update().get(pk=user.pk)
+    if user.role != target:
+        reason = mode_switch_blocker(user)
+        if reason:
+            raise ApiError(reason, code="mode_switch_blocked", status_code=409)
+        _apply_mode(user, target)
+    return _issue_for(user, device_id)
+
+
+def _issue_for(user: User, device_id: str | None) -> dict:
+    if user.role == UserRole.DRIVER:
+        device_id = device_id or uuid.uuid4().hex
+        user.active_device_id = device_id
+        user.save(update_fields=["active_device_id"])
+    else:
+        device_id = None
+    tokens = issue_tokens(user, device_id=device_id)
+    return {**tokens, "user": user}
+
+
 def _login_or_create(phone: str, role: str | None, device_id: str | None) -> dict:
     user = User.objects.filter(phone_number=phone).first()
     created = False
+    mode_note = None
     if user is None:
         wanted = role if role in (UserRole.PASSENGER, UserRole.DRIVER) else UserRole.PASSENGER
         user = User.objects.create_user(phone_number=phone, role=wanted)
@@ -134,15 +203,15 @@ def _login_or_create(phone: str, role: str | None, device_id: str | None) -> dic
             Driver.objects.get_or_create(user=user)
     if not user.is_active or user.deleted_at:
         raise ApiError("Compte désactivé.", code="account_blocked", status_code=403)
-    if user.role == UserRole.DRIVER:
-        device_id = device_id or uuid.uuid4().hex
-        user.active_device_id = device_id
-        user.save(update_fields=["active_device_id"])
-    else:
-        device_id = None
-    tokens = issue_tokens(user, device_id=device_id)
+    # Un même compte peut être passager et chauffeur : à la connexion, on ouvre le mode
+    # choisi, sauf si une course en cours l'en empêche (on reste alors dans le mode actuel).
+    if not created and role in MODES and user.role in MODES and user.role != role:
+        mode_note = mode_switch_blocker(user)
+        if mode_note is None:
+            _apply_mode(user, role)
+    result = _issue_for(user, device_id)
     log.info("Connexion %s (créé=%s)", user.id, created, extra={"user_id": str(user.id)})
-    return {**tokens, "user": user, "created": created}
+    return {**result, "created": created, "mode_note": mode_note}
 
 
 def logout_everywhere(user: User) -> None:

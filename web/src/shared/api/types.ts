@@ -89,6 +89,8 @@ export interface User {
   created_at: string;
   driver: DriverProfile | null;
   totp_enabled: boolean;
+  /** Le compte a déjà un profil chauffeur (double profil passager / chauffeur). */
+  has_driver_profile?: boolean;
 }
 
 export interface AuthTokens {
@@ -98,8 +100,10 @@ export interface AuthTokens {
 
 export interface OtpVerifyResponse extends AuthTokens {
   user: User;
-  /** true si le compte vient d'être créé (le rôle choisi ne s'applique qu'à ce moment) */
+  /** true si le compte vient d'être créé */
   created?: boolean;
+  /** Raison pour laquelle le mode choisi n'a pas pu être ouvert (course en cours). */
+  mode_note?: string | null;
 }
 
 export interface UploadTicket {

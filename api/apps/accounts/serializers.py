@@ -34,8 +34,14 @@ class UserSerializer(serializers.ModelSerializer):
             "totp_enabled",
             "rating_avg",
             "rating_count",
+            "has_driver_profile",
         )
         read_only_fields = ("id", "phone_number", "role", "is_active", "created_at", "totp_enabled")
+
+    has_driver_profile = serializers.SerializerMethodField()
+
+    def get_has_driver_profile(self, obj) -> bool:
+        return getattr(obj, "driver", None) is not None
 
     def get_driver(self, obj):
         driver = getattr(obj, "driver", None)

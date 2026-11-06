@@ -30,6 +30,10 @@ def _candidates(ride: Ride) -> list[tuple[Driver, float]]:
     if ride.dispatch_started_at:
         series = series.filter(offered_at__gte=ride.dispatch_started_at)
     excluded = set(str(x) for x in series.values_list("driver_id", flat=True))
+    # un compte à double profil ne reçoit jamais sa propre commande
+    own = Driver.objects.filter(user_id=ride.passenger_id).values_list("id", flat=True).first()
+    if own:
+        excluded.add(str(own))
     # Un chauffeur ne reçoit qu'une offre à la fois : ceux qui en ont une en cours sur une
     # autre course sont écartés (ils redeviennent candidats dès qu'elle est tranchée).
     excluded |= set(

@@ -53,10 +53,10 @@ textarea {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold min-h-tap text-base transition-colors select-none disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-brand text-white hover:bg-brand-dark;
+    @apply btn bg-brand text-white shadow-[0_2px_8px_rgba(30,155,69,0.25)] hover:bg-brand-dark active:scale-[0.99];
   }
   .btn-secondary {
-    @apply btn bg-white text-ink border border-gray-300 hover:bg-gray-50;
+    @apply btn bg-white text-ink border border-gray-200 shadow-[0_1px_2px_rgba(17,19,24,0.05)] hover:bg-gray-50;
   }
   .btn-ghost {
     @apply btn bg-transparent text-ink hover:bg-gray-100;
@@ -71,7 +71,13 @@ textarea {
     @apply w-full rounded-xl border border-gray-300 bg-white px-4 min-h-tap text-base text-ink placeholder:text-gray-400 focus:border-brand focus:ring-0;
   }
   .card {
-    @apply rounded-2xl bg-white border border-gray-200 p-4;
+    @apply rounded-2xl bg-white border border-gray-100 p-4 shadow-[0_1px_3px_rgba(17,19,24,0.06)];
+  }
+  .section-title {
+    @apply text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 mt-1;
+  }
+  .profile-row {
+    @apply w-full flex items-center gap-3 px-4 min-h-[56px] text-left font-semibold border-b border-gray-100 last:border-0 hover:bg-gray-50;
   }
   .label {
     @apply block text-sm font-semibold text-gray-700 mb-1;

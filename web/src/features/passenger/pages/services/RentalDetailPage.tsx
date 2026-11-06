@@ -80,15 +80,8 @@ export default function RentalDetailPage() {
   const v = l.vehicle;
   const tooShort = days > 0 && days < l.min_days;
   return (
-    <MobilePage
-      title={l.title}
-      action={
-        <Button variant="ghost" onClick={() => nav(-1)}>
-          {t('common.back')}
-        </Button>
-      }
-    >
-      {l.photo_url && (
+    <MobilePage title={l.title} back>
+      {l.photo_url && !l.photo_url.includes('placehold.co') && (
         <img src={l.photo_url} alt="" className="w-full h-44 object-cover rounded-2xl bg-gray-100 mb-3" />
       )}
       <p className="text-sm text-gray-600">

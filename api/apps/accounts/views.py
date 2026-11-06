@@ -56,6 +56,23 @@ class OtpVerifyView(APIView):
                 "access": result["access"],
                 "refresh": result["refresh"],
                 "created": result["created"],
+                "mode_note": result.get("mode_note"),
+                "user": UserSerializer(result["user"]).data,
+            }
+        )
+
+
+class ModeSwitchView(APIView):
+    """POST /me/mode { role: passenger | driver, device_id? } : nouveaux jetons + profil."""
+
+    def post(self, request):
+        target = str(request.data.get("role") or "")
+        device_id = request.data.get("device_id") or None
+        result = services.switch_mode(request.user, target, device_id)
+        return Response(
+            {
+                "access": result["access"],
+                "refresh": result["refresh"],
                 "user": UserSerializer(result["user"]).data,
             }
         )

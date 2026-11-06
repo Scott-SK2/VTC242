@@ -25,7 +25,7 @@ export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
         <Outlet />
       </main>
       <nav
-        className="shrink-0 border-t border-gray-200 bg-white"
+        className="shrink-0 border-t border-gray-100 bg-white shadow-[0_-2px_12px_rgba(17,19,24,0.04)]"
         aria-label="Navigation principale"
         style={{ paddingBottom: 'var(--safe-bottom)' }}
       >
@@ -36,23 +36,31 @@ export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
                 to={it.to}
                 end={it.end}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center gap-0.5 min-h-[56px] text-xs font-semibold ${isActive ? 'text-brand' : 'text-gray-500'}`
+                  `group flex flex-col items-center justify-center gap-0.5 min-h-[60px] text-[11px] font-semibold ${isActive ? 'text-brand-dark' : 'text-gray-500'}`
                 }
               >
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d={it.icon} />
-                </svg>
-                {it.label}
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className={`flex items-center justify-center h-8 w-14 rounded-full transition-colors ${isActive ? 'bg-brand-light' : ''}`}
+                    >
+                      <svg
+                        width="22"
+                        height="22"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={isActive ? 2.4 : 2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d={it.icon} />
+                      </svg>
+                    </span>
+                    {it.label}
+                  </>
+                )}
               </NavLink>
             </li>
           ))}
