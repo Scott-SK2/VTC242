@@ -43,6 +43,7 @@ En local (`SMS_BACKEND=console`), l'OTP est affiché dans les logs de l'API et, 
 |---|---|
 | `GET /geo/autocomplete?q=&lat=&lng=` | `{ "results": [ { "label": "Marché Total", "secondary": "Bacongo, Brazzaville", "lat", "lng", "source": "poi"\|"photon" } ] }` |
 | `GET /geo/zones/resolve?lat=&lng=` | `Zone` ou `404` |
+| `GET /geo/reverse?lat=&lng=` | `{ "label": "Marché Total" \| null }` : nom d'un point placé sur la carte (lieu connu à moins de 150 m, sinon rue / quartier via Photon) |
 
 ### Zone (public)
 ```json
@@ -138,7 +139,7 @@ En sandbox (`PAYMENT_PROVIDER_MODE=sandbox`), le dépôt aboutit automatiquement
 | `POST /drivers/me/location` | `{ "positions": [ { lat, lng, heading, speed_kmh, accuracy_m, recorded_at, ride_id? } ] }` | `202 { "accepted": n }` |
 | `GET /drivers/me/vehicles` | | `[Vehicle]` |
 | `POST /drivers/me/vehicles` | `{ brand, model, color, license_plate, taxi_number?, category, seats }` | `201 Vehicle` |
-| `PATCH /drivers/me/vehicles/{id}` | `{ is_active: true }` | `Vehicle` |
+| `PATCH /drivers/me/vehicles/{id}` | `{ is_active: true }` (activer) ou `{ brand?, model?, color?, license_plate?, taxi_number?, category?, seats? }` (modifier) | `Vehicle` ; une modification repasse le véhicule `is_verified: false` (revalidation par `POST /admin/vehicles/{id}/verify`) · `422` si véhicule actif en ligne ou taxi sans numéro |
 | `GET /drivers/me/documents` | | `[Document]` |
 | `POST /drivers/me/documents` | `{ "type", "file_url", "expires_at"? }` | `201 Document` |
 | `GET /drivers/me/offers/current` | | `Offer` ou `204` (fallback REST) |

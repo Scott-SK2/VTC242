@@ -307,3 +307,44 @@ def test_admin_refund_after_dispute_window(admin_api, api, driver_api, passenger
     # le support ne peut pas rembourser
     support = client_for(make_user("+242060000003", UserRole.SUPPORT), totp_ok=True)
     assert support.post(url, {"amount": "10", "reason": "x"}, format="json").status_code == 403
+
+
+def test_driver_can_change_vehicle_category_then_admin_reverifies(admin_api, driver, rules):
+    """Personnel → taxi : véhicule à revérifier (plus de mise en ligne), carte taxi exigée,
+    revalidation au back-office."""
+    from apps.drivers.models import Driver
+    from apps.drivers.services import blocking_reason
+
+    dc = client_for(driver.user)
+    Driver.objects.filter(pk=driver.pk).update(is_online=False, is_available=False)
+    vid = str(driver.active_vehicle_id)
+    url = f"/api/v1/drivers/me/vehicles/{vid}"
+    # passer en taxi sans numéro de taxi : refusé
+    assert dc.patch(url, {"category": "taxi", "taxi_number": ""}, format="json").status_code == 422
+    r = dc.patch(url, {"category": "standard"}, format="json")
+    assert r.status_code == 200 and r.data["category"] == "standard"
+    assert r.data["is_verified"] is False and r.data["taxi_number"] is None
+    driver.refresh_from_db()
+    assert blocking_reason(driver) == "Véhicule actif non vérifié."
+    v = admin_api.post(f"/api/v1/admin/vehicles/{vid}/verify")
+    assert v.status_code == 200
+    assert next(x for x in v.data["vehicles"] if x["id"] == vid)["is_verified"] is True
+    assert AuditLog.objects.filter(action="vehicle.verify", target_id=vid).exists()
+    # en ligne avec ce véhicule actif : modification refusée
+    Driver.objects.filter(pk=driver.pk).update(is_online=True)
+    assert dc.patch(url, {"color": "Rouge"}, format="json").status_code == 422
+    # l'activation reste possible comme avant (même route)
+    Driver.objects.filter(pk=driver.pk).update(is_online=False)
+    assert dc.patch(url, {"is_active": True}, format="json").status_code == 200
+
+
+def test_reverse_geocoding_uses_nearby_poi(api, zone):
+    from apps.common.geo import point
+    from apps.geo.models import PointOfInterest
+
+    PointOfInterest.objects.create(
+        name="Marché Total", zone=zone, location=point(-4.2650, 15.2800), aliases=[]
+    )
+    r = api.get("/api/v1/geo/reverse", {"lat": -4.2655, "lng": 15.2802})
+    assert r.status_code == 200 and r.data["label"] == "Marché Total"
+    assert api.get("/api/v1/geo/reverse", {"lat": -4.2650}).status_code == 400

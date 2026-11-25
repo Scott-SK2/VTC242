@@ -14,7 +14,7 @@ import {
   errorMessage,
 } from '@/shared/ui';
 import { useActiveRide, useWallet } from '@/shared/api/hooks';
-import { ridesApi } from '@/shared/api/endpoints';
+import { geoApi, ridesApi } from '@/shared/api/endpoints';
 import { isApiError } from '@/shared/api/client';
 import type { Estimate, LatLng, PaymentMethod, Place, VehicleCategory } from '@/shared/api/types';
 import { BRAZZAVILLE, formatDistance, formatDuration } from '@/shared/utils/geo';
@@ -160,8 +160,21 @@ export default function HomePage() {
         onClick={
           mode === 'pick-on-map'
             ? (p) => {
-                if (pickTarget === 'pickup') setPickup((old) => ({ address: old?.address ?? '', ...p }));
-                else setDropoff((old) => ({ address: old?.address ?? '', ...p }));
+                // jamais d'adresse vide (refusée par l'API) : nom provisoire, puis nom du lieu
+                const target = pickTarget;
+                const place = { ...p, address: t('passenger.home.pointOnMap') };
+                if (target === 'pickup') setPickup(place);
+                else setDropoff(place);
+                void geoApi
+                  .reverse(p.lat, p.lng)
+                  .then(({ label }) => {
+                    if (!label) return;
+                    const named = (old: Place | null) =>
+                      old && old.lat === p.lat && old.lng === p.lng ? { ...old, address: label } : old;
+                    if (target === 'pickup') setPickup(named);
+                    else setDropoff(named);
+                  })
+                  .catch(() => undefined);
                 const otherMissing = pickTarget === 'dropoff' ? !pickup : !dropoff;
                 setMode(
                   otherMissing ? (pickTarget === 'dropoff' ? 'search-pickup' : 'search-dropoff') : 'estimate',

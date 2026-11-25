@@ -163,6 +163,38 @@ def activate_vehicle(driver: Driver, vehicle: Vehicle) -> Vehicle:
     return vehicle
 
 
+VEHICLE_EDITABLE = ("brand", "model", "color", "license_plate", "taxi_number", "category", "seats")
+
+
+@transaction.atomic
+def update_vehicle(driver: Driver, vehicle: Vehicle, data: dict) -> Vehicle:
+    """Modification d'un véhicule (ex. personnel → taxi). Tout changement le repasse
+    « à vérifier » : s'il est actif, le chauffeur ne peut plus passer en ligne
+    avant revalidation."""
+    if driver.is_online and driver.active_vehicle_id == vehicle.id:
+        raise Unprocessable(
+            "Passez hors ligne pour modifier votre véhicule actif.", code="driver_online"
+        )
+    changed = []
+    for field in VEHICLE_EDITABLE:
+        if field in data and getattr(vehicle, field) != data[field]:
+            setattr(vehicle, field, data[field])
+            changed.append(field)
+    if vehicle.category != "taxi":
+        if vehicle.taxi_number:
+            vehicle.taxi_number = None
+            changed.append("taxi_number")
+    elif not vehicle.taxi_number:
+        raise Unprocessable(
+            "Numéro de taxi obligatoire pour un taxi conventionné.", code="validation_error"
+        )
+    if changed:
+        vehicle.is_verified = False
+        vehicle.save()
+        log.info("Véhicule %s modifié (%s), à revérifier", vehicle.id, ", ".join(changed))
+    return vehicle
+
+
 def add_document(driver: Driver, type_: str, file_url: str, expires_at=None) -> DriverDocument:
     doc = DriverDocument.objects.create(
         driver=driver, type=type_, file_url=file_url, expires_at=expires_at

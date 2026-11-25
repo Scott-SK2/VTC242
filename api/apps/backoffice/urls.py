@@ -18,6 +18,7 @@ urlpatterns = [
     path("drivers/<uuid:driver_id>", views.DriverDetailView.as_view()),
     path("drivers/<uuid:driver_id>/<slug:action>", views.DriverActionView.as_view()),
     path("documents/<uuid:document_id>/review", views.DocumentReviewView.as_view()),
+    path("vehicles/<uuid:vehicle_id>/verify", views.VehicleVerifyView.as_view()),
     path("passengers", views.PassengerListView.as_view()),
     path("passengers/<uuid:user_id>", views.PassengerDetailView.as_view()),
     path("passengers/<uuid:user_id>/<slug:action>", views.PassengerActionView.as_view()),

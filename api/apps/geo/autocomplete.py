@@ -126,3 +126,38 @@ def _photon(q: str, lat, lng, limit: int) -> list[dict]:
     except (httpx.HTTPError, KeyError, ValueError) as exc:
         log.warning("Photon indisponible pour %r : %s", q, exc)
         return []
+
+
+def reverse(lat: float, lng: float) -> str | None:
+    """Nom d'un point placé sur la carte : lieu connu à moins de 150 m, sinon Photon (rue,
+    quartier), sinon None (l'application affiche alors « Point choisi sur la carte »)."""
+    best: tuple[float, PointOfInterest] | None = None
+    for poi in PointOfInterest.objects.all()[:2000]:
+        d = haversine_m(lat, lng, poi.location.y, poi.location.x)
+        if d <= 150 and (best is None or d < best[0]):
+            best = (d, poi)
+    if best:
+        return best[1].name
+    if not settings.PHOTON_URL or getattr(settings, "ROUTING_BACKEND", "osrm") == "straight":
+        return None
+    try:
+        r = httpx.get(
+            f"{settings.PHOTON_URL.rstrip('/')}/reverse",
+            params={"lat": lat, "lon": lng, "lang": "fr", "limit": 1},
+            timeout=5,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        )
+        if r.status_code != 200:
+            return None
+        features = r.json().get("features", [])
+        if not features:
+            return None
+        p = features[0].get("properties", {})
+        street = " ".join(x for x in (p.get("housenumber"), p.get("street")) if x)
+        main = p.get("name") or street
+        area = p.get("district") or p.get("locality") or p.get("city")
+        label = ", ".join(x for x in (main, area) if x)
+        return label[:300] or None
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
+        log.warning("Photon reverse indisponible : %s", exc)
+        return None

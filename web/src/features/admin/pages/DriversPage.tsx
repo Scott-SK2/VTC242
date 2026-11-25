@@ -263,7 +263,14 @@ function DriverDetail({ id, fromList }: { id: string; fromList?: AdminDriver }) 
                 {t(`categories.${v.category}`)}
               </span>
               {v.is_active && <Badge tone="green">{t('driver.onboarding.active')}</Badge>}
-              {v.is_verified && <Badge tone="blue">{t('driver.onboarding.verified')}</Badge>}
+              {v.is_verified ? (
+                <Badge tone="blue">{t('driver.onboarding.verified')}</Badge>
+              ) : (
+                <>
+                  <Badge tone="yellow">{t('driver.onboarding.toVerify')}</Badge>
+                  <VerifyVehicleButton id={v.id} />
+                </>
+              )}
             </li>
           ))}
           {!d.vehicles?.length && <li className="text-gray-500">{t('common.none')}</li>}
@@ -349,5 +356,23 @@ function DriverDetail({ id, fromList }: { id: string; fromList?: AdminDriver }) 
         )}
       </Modal>
     </div>
+  );
+}
+
+function VerifyVehicleButton({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const verify = useMutation({
+    mutationFn: () => adminApi.verifyVehicle(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'drivers'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'driver'] });
+      toast(t('common.ok'), 'success');
+    },
+  });
+  return (
+    <Button className="min-h-[32px] px-3 text-xs" loading={verify.isPending} onClick={() => verify.mutate()}>
+      {t('admin.drivers.verifyVehicle')}
+    </Button>
   );
 }
