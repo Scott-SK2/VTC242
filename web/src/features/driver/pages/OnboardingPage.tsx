@@ -46,6 +46,9 @@ export default function OnboardingPage() {
   const vehicles = useQuery({ queryKey: qk.vehicles, queryFn: driversApi.vehicles });
   const [uploading, setUploading] = useState<DocumentType | null>(null);
   const [expires, setExpires] = useState<Partial<Record<DocumentType, string>>>({});
+  // Fichier choisi mais pas encore envoyé : l'ordre (fichier puis date, ou l'inverse) est libre.
+  const [picked, setPicked] = useState<Partial<Record<DocumentType, File>>>({});
+  const today = new Date().toISOString().slice(0, 10);
   const [addOpen, setAddOpen] = useState(false);
   const hasTaxi = (vehicles.data ?? []).some((v) => v.category === 'taxi');
 
@@ -53,18 +56,24 @@ export default function OnboardingPage() {
   for (const d of [...(docs.data ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)))
     latestByType.set(d.type, d);
 
-  async function upload(type: DocumentType, file: File | undefined) {
+  function pick(type: DocumentType, file: File | undefined) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) return toast(t('driver.onboarding.fileHint'), 'error');
+    setPicked((s) => ({ ...s, [type]: file }));
+  }
+
+  async function upload(type: DocumentType) {
+    const file = picked[type];
+    if (!file) return;
     setUploading(type);
     try {
       const url = await uploadFile(type === 'profile_photo' ? 'profile_photo' : 'document', file);
       const exp = expires[type];
-      await driversApi.addDocument({
-        type,
-        file_url: url,
-        ...(exp ? { expires_at: new Date(exp).toISOString() } : {}),
-      });
+      // l'API attend une date simple (AAAA-MM-JJ), pas une date-heure
+      await driversApi.addDocument({ type, file_url: url, ...(exp ? { expires_at: exp } : {}) });
+      setPicked((s) => ({ ...s, [type]: undefined }));
+      setExpires((s) => ({ ...s, [type]: undefined }));
+      toast(t('driver.onboarding.sent'), 'success');
       await Promise.all([
         qc.invalidateQueries({ queryKey: qk.documents }),
         qc.invalidateQueries({ queryKey: qk.driverMe }),
@@ -119,9 +128,35 @@ export default function OnboardingPage() {
                 </p>
               )}
               {status !== 'approved' && (
-                <div className="mt-2 flex flex-col sm:flex-row gap-2 sm:items-end">
+                <div className="mt-3 space-y-3">
+                  <label
+                    className={`flex items-center gap-3 rounded-xl border-2 border-dashed px-3 min-h-tap cursor-pointer ${
+                      picked[type] ? 'border-brand bg-brand-light' : 'border-gray-300 bg-gray-50'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold truncate flex-1">
+                      {picked[type]
+                        ? picked[type]!.name
+                        : doc
+                          ? t('driver.onboarding.chooseNewFile')
+                          : t('driver.onboarding.chooseFile')}
+                    </span>
+                    <span className="text-sm text-brand-dark font-semibold shrink-0">
+                      {picked[type] ? t('driver.onboarding.change') : t('driver.onboarding.browse')}
+                    </span>
+                    <input
+                      type="file"
+                      className="sr-only"
+                      accept="image/jpeg,image/png,application/pdf"
+                      disabled={uploading !== null}
+                      onChange={(e) => {
+                        pick(type, e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
                   {needsExpiry && (
-                    <div className="flex-1">
+                    <div>
                       <label className="label" htmlFor={`exp-${type}`}>
                         {t('driver.onboarding.expiresAt')}
                       </label>
@@ -129,25 +164,23 @@ export default function OnboardingPage() {
                         id={`exp-${type}`}
                         type="date"
                         className="input"
+                        min={today}
                         value={expires[type] ?? ''}
                         onChange={(e) => setExpires((s) => ({ ...s, [type]: e.target.value }))}
                       />
                     </div>
                   )}
-                  <label className={`btn-primary cursor-pointer ${uploading === type ? 'opacity-60' : ''}`}>
-                    {uploading === type
-                      ? t('driver.onboarding.uploading')
-                      : doc
-                        ? t('driver.onboarding.replace')
-                        : t('driver.onboarding.upload')}
-                    <input
-                      type="file"
-                      className="sr-only"
-                      accept="image/jpeg,image/png,application/pdf"
-                      disabled={uploading !== null}
-                      onChange={(e) => void upload(type, e.target.files?.[0])}
-                    />
-                  </label>
+                  <Button
+                    block
+                    loading={uploading === type}
+                    disabled={!picked[type] || (needsExpiry && !expires[type]) || uploading !== null}
+                    onClick={() => void upload(type)}
+                  >
+                    {doc ? t('driver.onboarding.replace') : t('driver.onboarding.send')}
+                  </Button>
+                  {picked[type] && needsExpiry && !expires[type] && (
+                    <p className="text-xs text-gray-600 -mt-2">{t('driver.onboarding.expiryNeeded')}</p>
+                  )}
                 </div>
               )}
               {doc?.file_url && (
