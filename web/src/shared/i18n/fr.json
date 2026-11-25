@@ -409,7 +409,7 @@
     },
     "onboarding": {
       "title": "Mon dossier chauffeur",
-      "subtitle": "Téléversez vos pièces ; elles sont vérifiées par l'équipe VTC 242.",
+      "subtitle": "Pour chaque pièce : choisissez le fichier, indiquez la date d'expiration si elle est demandée, puis envoyez. Les pièces sont vérifiées par l'équipe VTC 242.",
       "docs": {
         "license": "Permis de conduire",
         "registration": "Carte grise",
@@ -446,7 +446,14 @@
       "license_number": "N° de permis",
       "progress": "{{done}} / {{total}} pièces validées",
       "reviewNote": "Motif : {{note}}",
-      "goHome": "Aller à l'écran principal"
+      "goHome": "Aller à l'écran principal",
+      "chooseFile": "Choisir le fichier (photo ou PDF)",
+      "chooseNewFile": "Choisir un nouveau fichier",
+      "browse": "Parcourir",
+      "change": "Changer",
+      "send": "Envoyer",
+      "sent": "Pièce envoyée, elle va être vérifiée.",
+      "expiryNeeded": "Indiquez la date d'expiration pour pouvoir envoyer."
     },
     "wallet": {
       "title": "Mes gains",
