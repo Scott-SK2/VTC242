@@ -84,6 +84,7 @@ class BookingStatus(models.TextChoices):
     COMPLETED = "completed", "Terminée"
     CANCELLED_BY_RENTER = "cancelled_by_renter", "Annulée par le client"
     CANCELLED_BY_OWNER = "cancelled_by_owner", "Annulée par le loueur"
+    CANCELLED_BY_SUPPORT = "cancelled_by_support", "Annulée par le support"
     EXPIRED = "expired", "Expirée"
 
 

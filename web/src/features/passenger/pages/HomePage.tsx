@@ -363,7 +363,7 @@ export default function HomePage() {
           <div className="text-sm space-y-1 mb-3">
             <button
               type="button"
-              className="w-full text-left flex gap-2 min-h-[36px] items-center"
+              className="w-full text-left flex gap-2 min-h-[44px] items-center"
               onClick={() => setMode('search-pickup')}
             >
               <span className="text-brand" aria-hidden="true">
@@ -373,7 +373,7 @@ export default function HomePage() {
             </button>
             <button
               type="button"
-              className="w-full text-left flex gap-2 min-h-[36px] items-center"
+              className="w-full text-left flex gap-2 min-h-[44px] items-center"
               onClick={() => setMode('search-dropoff')}
             >
               <span aria-hidden="true">■</span>

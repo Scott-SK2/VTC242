@@ -53,6 +53,8 @@ class AlertType(models.TextChoices):
     BALANCE_MISMATCH = "balance_mismatch", "Écart de solde"
     NO_DRIVERS_ONLINE = "no_drivers_online", "Aucun chauffeur en ligne"
     HIGH_CANCELLATION = "high_cancellation", "Taux d'annulation élevé"
+    PAYOUT_REVIEW = "payout_review", "Retrait à vérifier"
+    STALE_RIDE = "stale_ride", "Course bloquée"
 
 
 class AlertStatus(models.TextChoices):

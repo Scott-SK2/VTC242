@@ -30,6 +30,10 @@ Accès : `https://app.vtc242.cg/admin` avec un compte `admin`, `finance` ou `sup
 
 **Retrait au-dessus du seuil** : Finances → Retraits → *Approuver* (lance le virement) ou *Rejeter* (recrédit automatique du chauffeur).
 
+**Retrait « Sans réponse »** : un retrait transmis à l'opérateur et resté sans réponse plus de 15 min n'est pas recrédité automatiquement (l'argent est peut-être parti). Une alerte « Retrait à vérifier » apparaît dans Alertes et le retrait est marqué « Sans réponse » dans Finances. *Rejeter* revérifie d'abord le statut auprès de l'opérateur : s'il a été versé, il est marqué versé ; sinon le chauffeur est recrédité.
+
+**Course bloquée** : une course acceptée depuis plus de 1 h 30 sans démarrer, ou en cours depuis plus de 5 h, déclenche une alerte « Course bloquée ». Depuis sa fiche, *Annuler* la clôture sans frais et libère les fonds du passager.
+
 
 ## Locations (menu « Locations »)
 
@@ -42,6 +46,8 @@ Accès : `https://app.vtc242.cg/admin` avec un compte `admin`, `finance` ou `sup
   montant, statut). Les fonds du client sont réservés à la demande et débités à la clôture par le
   loueur ; la caution (mode sans chauffeur) est libérée à la clôture. En cas de litige, utiliser
   l'ajustement de wallet (Finances) avec un motif.
+  *Annuler* (réservation demandée, acceptée ou en cours) libère le prix et la caution du client,
+  sans frais ; le client et le loueur sont prévenus et l'action est journalisée.
 
 ## Covoiturage (menu « Covoiturage »)
 

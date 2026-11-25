@@ -250,5 +250,8 @@ l'heure prévue : `expired`, fonds libérés.
 Événement temps réel `carpool.trip_updated` (conducteur et passagers confirmés) + push.
 
 Back-office : `GET /admin/rentals/listings?status=&q=`, `POST /admin/rentals/listings/{id}/approve|suspend|reinstate`,
-`GET /admin/rentals/bookings`, `GET /admin/carpool/trips?status=&q=`, `POST /admin/carpool/trips/{id}/cancel`.
+`GET /admin/rentals/bookings`, `POST /admin/rentals/bookings/{id}/cancel` (support : `cancelled_by_support`, fonds libérés sans frais),
+`GET /admin/carpool/trips?status=&q=`, `POST /admin/carpool/trips/{id}/cancel`.
+Retraits : `GET /admin/finance/payouts?status=awaiting_approval,pending,processing` renvoie `can_approve`, `can_reject` et `is_stuck` ;
+`POST /admin/finance/payouts/{id}/reject` accepte `{ reason }`.
 Grand livre : types `service_payment` (client) et `service_earning` (prestataire), `payload.kind` = `rental` | `carpool`.

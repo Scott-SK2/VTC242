@@ -1,7 +1,7 @@
 # Reste à faire — VTC 242
 
 État au 25 novembre 2026. La V1 du cahier des charges v3 est développée et testée
-(78 tests backend, 32 tests web) ; location et covoiturage (prévus en V3) sont déjà livrés.
+(82 tests backend, 37 tests web) ; location et covoiturage (prévus en V3) sont déjà livrés.
 Audit complet du 25 novembre (sécurité, argent, interface) : points relevés corrigés.
 Cocher les cases au fur et à mesure.
 

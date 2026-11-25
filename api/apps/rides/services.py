@@ -413,6 +413,11 @@ def auto_cancel_no_driver(ride_id) -> Ride | None:
     ride = _locked_ride(ride_id)
     if ride.status != RideStatus.NO_DRIVER:
         return ride
+    # relancée puis de nouveau sans chauffeur entre-temps : le délai repart de zéro
+    if ride.cancelled_at and timezone.now() - ride.cancelled_at < timedelta(
+        seconds=settings.NO_DRIVER_AUTO_CANCEL_S
+    ):
+        return ride
     if ride.payment_method == PaymentMethod.WALLET and ride.reserved_amount:
         payments.release(ride.passenger, ride.reserved_amount)
     ride.cancellation_fee = ZERO

@@ -463,6 +463,18 @@ def approve_payout(req: PayoutRequest, actor) -> PayoutRequest:
     return req
 
 
+def payout_is_stuck(req: PayoutRequest) -> bool:
+    """Retrait transmis (ou à transmettre) à l'opérateur et resté sans issue depuis plus de
+    15 min : la finance peut le rejeter, après vérification auprès de l'opérateur."""
+    tx = req.transaction
+    return (
+        req.status in (PayoutStatus.PENDING, PayoutStatus.PROCESSING)
+        and tx is not None
+        and tx.status == TransactionStatus.PENDING
+        and timezone.now() - tx.created_at > timedelta(seconds=settings.DEPOSIT_EXPIRE_AFTER_S)
+    )
+
+
 @transaction.atomic
 def reject_payout(req: PayoutRequest, actor, note: str = "") -> PayoutRequest:
     req = (
@@ -471,12 +483,7 @@ def reject_payout(req: PayoutRequest, actor, note: str = "") -> PayoutRequest:
         .get(pk=req.pk)
     )
     tx = req.transaction
-    stuck = (
-        req.status in (PayoutStatus.PENDING, PayoutStatus.PROCESSING)
-        and tx is not None
-        and tx.status == TransactionStatus.PENDING
-        and timezone.now() - tx.created_at > timedelta(seconds=settings.DEPOSIT_EXPIRE_AFTER_S)
-    )
+    stuck = payout_is_stuck(req)
     if req.status != PayoutStatus.AWAITING_APPROVAL and not stuck:
         # déjà transmis à l'opérateur : seul un retrait bloqué (sans réponse depuis
         # 15 min, vérifié ci-dessous auprès de l'opérateur) peut encore être rejeté
@@ -495,6 +502,7 @@ def reject_payout(req: PayoutRequest, actor, note: str = "") -> PayoutRequest:
     req.note = note
     req.save(update_fields=["processed_by", "processed_at", "note", "updated_at"])
     _fail_and_recredit(tx, f"Rejeté par la finance : {note}", final=PayoutStatus.REJECTED)
+    req.refresh_from_db()  # statut final écrit par _fail_and_recredit
     return req
 
 
@@ -658,9 +666,19 @@ def _flag_payout_for_review(tx: WalletTransaction, reason: str) -> None:
         provider_payload={**(tx.provider_payload or {}), "review_alerted": reason}
     )
     log.error("Retrait %s à vérifier : %s", tx.pk, reason)
-    events.send_to_admins(
-        "admin.alert",
-        {"type": "payout_review", "transaction_id": str(tx.pk), "reason": reason},
+    from apps.safety.models import AlertType
+    from apps.safety.services import raise_alert
+
+    # alerte enregistrée (page Alertes du back-office), pas seulement diffusée en direct
+    raise_alert(
+        AlertType.PAYOUT_REVIEW,
+        None,
+        {
+            "transaction_id": str(tx.pk),
+            "amount": str(-tx.amount),
+            "phone_number": tx.phone_number or "",
+            "reason": reason,
+        },
     )
 
 
@@ -750,5 +768,16 @@ def recompute_balances() -> list[dict]:
             )
     if mismatches:
         log.error("Écarts de solde détectés : %s", mismatches)
-        events.send_to_admins("admin.alert", {"type": "balance_mismatch", "payload": mismatches})
+        from apps.safety.models import Alert, AlertStatus, AlertType
+        from apps.safety.services import raise_alert
+
+        # une seule alerte ouverte à la fois (le contrôle tourne chaque nuit)
+        if not Alert.objects.filter(
+            type=AlertType.BALANCE_MISMATCH, status=AlertStatus.OPEN
+        ).exists():
+            raise_alert(
+                AlertType.BALANCE_MISMATCH,
+                None,
+                {"count": len(mismatches), "wallets": mismatches[:20]},
+            )
     return mismatches

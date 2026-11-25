@@ -657,7 +657,7 @@ class PayoutActionView(StaffView):
 
     def post(self, request, payout_id, action):
         req = get_object_or_404(PayoutRequest, pk=payout_id)
-        note = request.data.get("note", "")
+        note = str(request.data.get("note") or request.data.get("reason") or "")[:300]
         if action == "approve":
             req = payment_services.approve_payout(req, request.user)
         elif action == "reject":
@@ -895,6 +895,23 @@ class RentalBookingListView(StaffListView):
                 | Q(owner__phone_number__icontains=p["q"])
             )
         return qs
+
+
+class RentalBookingCancelView(StaffView):
+    """Annulation d'une réservation de location par le support (fonds libérés, sans frais),
+    journalisée."""
+
+    roles = ADMIN_SUPPORT
+
+    def post(self, request, booking_id):
+        booking = get_object_or_404(RentalBooking, pk=booking_id)
+        ser = ReasonSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        reason = ser.validated_data["reason"]
+        before = booking.status
+        booking = rental_services.support_cancel(booking.id, reason)
+        audit(request, "rental_booking.cancel", booking, {"reason": reason, "from": before})
+        return Response(RentalBookingSerializer(booking).data)
 
 
 class CarpoolTripListView(StaffListView):

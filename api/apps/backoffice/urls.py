@@ -35,6 +35,7 @@ urlpatterns = [
         views.RentalListingActionView.as_view(),
     ),
     path("rentals/bookings", views.RentalBookingListView.as_view()),
+    path("rentals/bookings/<uuid:booking_id>/cancel", views.RentalBookingCancelView.as_view()),
     path("carpool/trips", views.CarpoolTripListView.as_view()),
     path("carpool/trips/<uuid:trip_id>/cancel", views.CarpoolTripCancelView.as_view()),
     path("disputes", views.DisputeListView.as_view()),
