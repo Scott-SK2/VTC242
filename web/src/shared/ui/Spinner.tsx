@@ -1,3 +1,4 @@
+import i18n from '@/shared/i18n';
 export function Spinner({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
     <svg
@@ -7,7 +8,7 @@ export function Spinner({ size = 24, className = '' }: { size?: number; classNam
       viewBox="0 0 24 24"
       fill="none"
       role="status"
-      aria-label="Chargement"
+      aria-label={i18n.t('common.loading')}
     >
       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" />
       <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />

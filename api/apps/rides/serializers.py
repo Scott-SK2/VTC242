@@ -98,6 +98,7 @@ class RideSerializer(serializers.ModelSerializer):
     dispute = serializers.SerializerMethodField()
     deviation = serializers.SerializerMethodField()
     share_token = serializers.SerializerMethodField()
+    free_waiting_seconds = serializers.SerializerMethodField()
 
     class Meta:
         model = Ride
@@ -142,6 +143,7 @@ class RideSerializer(serializers.ModelSerializer):
             "deviation",
             "detour_until",
             "share_token",
+            "free_waiting_seconds",
         )
 
     @property
@@ -217,6 +219,11 @@ class RideSerializer(serializers.ModelSerializer):
         from .services import cancellation_fee_preview
 
         return str(cancellation_fee_preview(obj, self.role))
+
+    def get_free_waiting_seconds(self, obj) -> int:
+        """Attente gratuite de la grille appliquée (affichée par le chronomètre d'attente)."""
+        rule = obj.pricing_rule
+        return int(rule.free_waiting_seconds) if rule else 180
 
     def get_my_rating(self, obj):
         user = self.context.get("user")

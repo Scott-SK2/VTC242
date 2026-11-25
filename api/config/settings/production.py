@@ -1,5 +1,19 @@
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import *  # noqa: F401,F403
-from .base import STORAGES, env
+from .base import AIRTEL, MTN, PAYMENT_PROVIDER_MODE, REST_FRAMEWORK, SECRET_KEY, STORAGES, env
+
+# Garde-fous de démarrage : jamais de clé de signature publique, jamais de paiement réel
+# avec des webhooks non signés.
+if not SECRET_KEY or SECRET_KEY == "dev-insecure-secret-key-change-me" or len(SECRET_KEY) < 32:
+    raise ImproperlyConfigured("SECRET_KEY absente ou trop faible en production.")
+if PAYMENT_PROVIDER_MODE == "live" and not (MTN["WEBHOOK_SECRET"] and AIRTEL["WEBHOOK_SECRET"]):
+    raise ImproperlyConfigured(
+        "PAYMENT_PROVIDER_MODE=live exige MTN_WEBHOOK_SECRET et AIRTEL_WEBHOOK_SECRET."
+    )
+# Render place un proxy devant l'API : son entrée X-Forwarded-For est la seule fiable
+REST_FRAMEWORK["NUM_PROXIES"] = env.int("NUM_PROXIES", default=1) or None
+DJANGO_ADMIN_ENABLED = env.bool("DJANGO_ADMIN_ENABLED", default=False)
 
 DEBUG = False
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)

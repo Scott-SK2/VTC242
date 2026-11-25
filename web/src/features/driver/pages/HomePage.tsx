@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,14 +16,13 @@ import { qk, useActiveRide, useRide } from '@/shared/api/hooks';
 import { driversApi, ridesApi } from '@/shared/api/endpoints';
 import { isApiError } from '@/shared/api/client';
 import { useWsEvent } from '@/shared/ws';
-import type { Offer, Ride } from '@/shared/api/types';
+import type { Ride } from '@/shared/api/types';
 import { BRAZZAVILLE } from '@/shared/utils/geo';
 import { formatTime } from '@/shared/utils/date';
-import { vibrate, beep } from '@/shared/utils/device';
 import { toast } from '@/shared/store/ui';
-import { ensureNotificationPermission, notify } from '@/shared/notify';
+import { ensureNotificationPermission } from '@/shared/notify';
 import { subscribePush } from '@/pwa/push';
-import { useLocationSender } from '../useLocationSender';
+import { useDriverSessionStore } from '../sessionStore';
 import { useWatchPosition } from '@/shared/utils/geolocation';
 import { useGeoSimStore } from '@/shared/store/geoSim';
 import { GeoSimBanner } from '@/shared/ui/GeoSim';
@@ -38,17 +37,25 @@ export default function DriverHomePage() {
   const profile = useQuery({ queryKey: qk.driverMe, queryFn: driversApi.me, refetchInterval: 30_000 });
   const active = useActiveRide();
   const activeId = active.data?.id;
-  const ride = useRide(activeId);
-  const currentRide: Ride | null = ride.data ?? active.data ?? null;
-  const [offer, setOffer] = useState<Offer | null>(null);
-  const offerRef = useRef<Offer | null>(null);
-  offerRef.current = offer;
+  // Course suivie à l'écran : reste affichée une fois terminée (prix final, gain, notation)
+  // jusqu'à ce que le chauffeur ferme le récapitulatif ; le cache « course active », lui,
+  // repasse à null dès la fin de course.
+  const [shownRideId, setShownRideId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (activeId) setShownRideId(activeId);
+  }, [activeId]);
+  const ride = useRide(shownRideId ?? activeId);
+  const currentRide: Ride | null = (shownRideId || activeId ? ride.data : null) ?? active.data ?? null;
+  const offer = useDriverSessionStore((s) => s.offer);
+  const setOffer = useDriverSessionStore((s) => s.setOffer);
   const [sos, setSos] = useState(false);
   const isOnline = !!profile.data?.is_online;
-  const { fix, stale, queued, gpsError, simulated } = useLocationSender(
-    isOnline || !!currentRide,
-    currentRide?.id ?? null,
-  );
+  // envoi de position et offres : <DriverSession />, actif sur tous les onglets
+  const fix = useDriverSessionStore((s) => s.fix);
+  const stale = useDriverSessionStore((s) => s.stale);
+  const queued = useDriverSessionStore((s) => s.queued);
+  const gpsError = useDriverSessionStore((s) => s.gpsError);
+  const simulated = useDriverSessionStore((s) => s.simulated);
   const moveSim = useGeoSimStore((s) => s.move);
   const simEnabled = useGeoSimStore((s) => s.enabled);
   const simPosition = useGeoSimStore((s) => s.position);
@@ -65,27 +72,6 @@ export default function DriverHomePage() {
     },
   });
 
-  // Offres : WebSocket + repli REST au chargement
-  useWsEvent('ride.offer', (o) => {
-    // Une offre à la fois : si une autre est déjà affichée, on garde la première (le serveur
-    // ne devrait pas en envoyer deux, mais on se protège d'un croisement).
-    if (offerRef.current && offerRef.current.ride_id !== o.ride_id) return;
-    setOffer({ ...o, deadline: Date.now() + (o.ttl_s ?? 15) * 1000 });
-    notify(t('driver.offer.title'), o.pickup.address, { tag: `offer-${o.ride_id}`, silent: true });
-    vibrate([200, 100, 200]);
-    beep(2);
-  });
-  useEffect(() => {
-    if (!isOnline || currentRide) return;
-    driversApi
-      .currentOffer()
-      .then((o) => o && setOffer(o))
-      .catch(() => undefined);
-  }, [isOnline, currentRide]);
-  useWsEvent('ride.status_updated', (r) => {
-    if (offer && r.id === offer.ride_id && r.status !== 'dispatching' && r.status !== 'requested')
-      setOffer(null);
-  });
   useWsEvent('ride.cancelled', (d) => {
     if (currentRide && d.ride_id === currentRide.id) toast(t('status.cancelled_by_passenger'), 'error');
   });
@@ -221,7 +207,7 @@ export default function DriverHomePage() {
         rideId={currentRide?.id ?? null}
       />
 
-      {offer && !currentRide && (
+      {offer && !active.data && (
         <OfferScreen
           offer={offer}
           busy={respond.isPending}
@@ -245,6 +231,7 @@ export default function DriverHomePage() {
             ride={currentRide}
             fix={fix}
             onFinished={() => {
+              setShownRideId(undefined);
               qc.setQueryData(qk.activeRide, null);
               void qc.invalidateQueries({ queryKey: qk.activeRide });
               void qc.invalidateQueries({ queryKey: qk.wallet });

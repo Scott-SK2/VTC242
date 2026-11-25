@@ -78,8 +78,30 @@ class RefreshSerializer(serializers.Serializer):
     refresh = serializers.CharField()
 
 
+PUSH_SERVICE_HOSTS = (
+    "fcm.googleapis.com",
+    "updates.push.services.mozilla.com",
+    "web.push.apple.com",
+)
+PUSH_SERVICE_SUFFIXES = (".notify.windows.com", ".push.apple.com", ".push.services.mozilla.com")
+
+
+def validate_push_endpoint(value: str) -> str:
+    """Seuls les services Web Push des navigateurs : le serveur ne doit jamais envoyer de
+    requête vers une adresse choisie par l'utilisateur (réseau interne, etc.)."""
+    from urllib.parse import urlparse
+
+    url = urlparse(value)
+    host = (url.hostname or "").lower()
+    if url.scheme != "https" or not (
+        host in PUSH_SERVICE_HOSTS or host.endswith(PUSH_SERVICE_SUFFIXES)
+    ):
+        raise serializers.ValidationError("Service de notification non reconnu.")
+    return value
+
+
 class PushSubscriptionSerializer(serializers.Serializer):
-    endpoint = serializers.URLField(max_length=1000)
+    endpoint = serializers.URLField(max_length=1000, validators=[validate_push_endpoint])
     keys = serializers.DictField(child=serializers.CharField())
     user_agent = serializers.CharField(max_length=255, required=False, allow_blank=True)
 

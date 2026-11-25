@@ -105,8 +105,10 @@ def transition(ride: Ride, new_status: str, actor=None, payload: dict | None = N
     return ride
 
 
-def get_ride_for(user, ride_id) -> Ride:
-    """404 pour une course d'autrui (A-18)."""
+def get_ride_for(user, ride_id, *, allow_offered: bool = False) -> Ride:
+    """404 pour une course d'autrui (A-18). Un chauffeur à qui la course est seulement
+    proposée n'y accède qu'avec allow_offered (détail de l'offre), jamais au chat, au
+    reçu, à l'urgence ni à la notation."""
     qs = Ride.objects.select_related(
         "driver__user", "driver__active_vehicle", "vehicle", "passenger", "zone", "pricing_rule"
     )
@@ -118,10 +120,16 @@ def get_ride_for(user, ride_id) -> Ride:
     if user.role == "driver":
         driver = getattr(user, "driver", None)
         if driver is None or ride.driver_id != driver.id:
-            # un chauffeur peut consulter une course qui lui est proposée
-            if not RideOffer.objects.filter(
-                ride=ride, driver=driver, response__isnull=True
-            ).exists():
+            # un chauffeur peut consulter une course qui lui est proposée (offre en cours)
+            if not (
+                allow_offered
+                and RideOffer.objects.filter(
+                    ride=ride,
+                    driver=driver,
+                    response__isnull=True,
+                    expires_at__gt=timezone.now(),
+                ).exists()
+            ):
                 raise NotFound("Course introuvable.")
     return ride
 
@@ -297,6 +305,13 @@ def accept(ride_id, driver) -> Ride:
         raise Conflict(
             "Vous devez être en ligne avec un véhicule actif.", code="driver_unavailable"
         )
+    from apps.accounts.models import User
+
+    role = User.objects.filter(pk=driver.user_id).values_list("role", flat=True).first()
+    if role != "driver" or driver.status != "approved":
+        raise Conflict("Votre compte ne peut pas prendre de course.", code="driver_unavailable")
+    if Ride.objects.filter(driver=driver, status__in=ACTIVE_STATUSES).exists():
+        raise Conflict("Vous avez déjà une course en cours.", code="driver_busy")
     offer.response = OfferResponse.ACCEPTED
     offer.responded_at = timezone.now()
     offer.save(update_fields=["response", "responded_at"])
@@ -599,7 +614,7 @@ def complete(ride_id, driver, lat: float | None, lng: float | None) -> Ride:
     commission = commission_for(rule, final_price)
     result = payments.settle_ride(ride, final_price, commission)
     ride.final_price = final_price
-    ride.commission_amount = commission
+    ride.commission_amount = result["commission"]
     ride.driver_earning = result["earning"]
     ride.price_capped = result["capped"]
     ride.dispute_deadline_at = now + timedelta(hours=settings.RIDE_DISPUTE_WINDOW_HOURS)
@@ -655,7 +670,13 @@ def cancel(ride_id, actor, reason: str) -> Ride:
         _check_driver(ride, actor.driver)
         target = RideStatus.CANCELLED_BY_DRIVER
     else:
-        target = RideStatus.CANCELLED_BY_PASSENGER
+        # support / admin : clôture d'une course bloquée, y compris en cours (chauffeur
+        # suspendu, téléphone perdu…), sans frais : la réservation est simplement levée
+        target = (
+            RideStatus.CANCELLED_BY_DRIVER
+            if ride.status == RideStatus.IN_PROGRESS
+            else RideStatus.CANCELLED_BY_PASSENGER
+        )
     if target not in TRANSITIONS.get(ride.status, ()):
         raise Conflict("Cette course ne peut plus être annulée.", code="invalid_transition")
     fee = cancellation_fee_preview(ride, actor.role)
@@ -754,12 +775,8 @@ def resolve_dispute(
     else:
         amount = d(refund_amount or ZERO)
         if amount > ZERO:
-            max_refund = d(dispute.ride.final_price or ZERO)
-            if amount > max_refund:
-                raise Unprocessable(
-                    "Le remboursement dépasse le prix de la course.", code="invalid_amount"
-                )
-            payments.refund(dispute.ride, amount, actor, resolution)
+            # même plafond qu'un remboursement back-office : débité moins déjà remboursé
+            payments.refund_ride(dispute.ride, amount, actor, resolution)
             dispute.refund_amount = amount
         dispute.status = DisputeStatus.RESOLVED
     dispute.resolution = resolution

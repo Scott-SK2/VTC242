@@ -4,8 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import F, Q, Value
-from django.db.models.functions import Greatest
+from django.db.models import Q
 
 from apps.common.models import TimeStampedModel
 
@@ -55,11 +54,14 @@ class Wallet(models.Model):
     class Meta:
         db_table = "wallets"
         constraints = [
+            # Le réservé ne dépasse jamais le solde au moment de réserver (contrôlé dans
+            # services.reserve). Il peut le dépasser ensuite quand la plateforme doit
+            # débiter (commission, reprise sur litige) : c'est une dette, pas une erreur,
+            # et la course ou le litige ne doit pas échouer pour autant.
             models.CheckConstraint(
-                condition=Q(reserved_balance__gte=0)
-                & Q(reserved_balance__lte=Greatest(F("balance"), Value(0))),
-                name="wallet_reserved_within_balance",
-                violation_error_message="Le montant réservé dépasse le solde.",
+                condition=Q(reserved_balance__gte=0),
+                name="wallet_reserved_non_negative",
+                violation_error_message="Le montant réservé ne peut pas être négatif.",
             )
         ]
 

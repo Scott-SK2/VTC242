@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 from decimal import Decimal
+from functools import partial
 
 from django.conf import settings
 from django.core.cache import cache
@@ -44,7 +45,9 @@ def _candidates(ride: Ride) -> list[tuple[Driver, float]]:
     )
     min_rating = ride.zone.min_driver_rating
     for radius in settings.DISPATCH_RADII_M:
-        rows = geoindex.nearby(ride.category, lat, lng, radius, count=10)
+        # assez large pour qu'une poignée de chauffeurs écartés (pause, note, offre en
+        # cours) ne masque pas les suivants
+        rows = geoindex.nearby(ride.category, lat, lng, radius, count=len(excluded) + 50)
         ids = [rid for rid, _ in rows if rid not in excluded]
         if not ids:
             continue
@@ -129,10 +132,31 @@ def offer_next(ride_id) -> RideOffer | None:
         if timezone.now() - started > timedelta(seconds=settings.DISPATCH_MAX_DURATION_S):
             transaction.on_commit(lambda: services.no_driver(ride.id))
         return None
-    driver, dist = candidates[0]
     lock_key = f"ride:lock:{ride.id}"
-    if not cache.add(lock_key, str(driver.id), timeout=settings.DISPATCH_OFFER_TTL_S):
+    if not cache.add(lock_key, "pending", timeout=settings.DISPATCH_OFFER_TTL_S):
         return None
+    # Un chauffeur ne reçoit qu'une offre à la fois, même quand plusieurs courses sont
+    # proposées en parallèle : verrou court par chauffeur (le temps que l'offre soit
+    # enregistrée), puis contrôle en base des offres déjà ouvertes.
+    chosen = None
+    for drv, dist in candidates:
+        drv_key = f"driver:offer:{drv.id}"
+        if not cache.add(drv_key, str(ride.id), timeout=10):
+            continue
+        if RideOffer.objects.filter(
+            driver=drv, response__isnull=True, expires_at__gt=timezone.now()
+        ).exists():
+            cache.delete(drv_key)
+            continue
+        chosen = (drv, dist)
+        # une fois l'offre visible en base, le contrôle ci-dessus suffit
+        transaction.on_commit(partial(cache.delete, drv_key))
+        break
+    if chosen is None:
+        cache.delete(lock_key)
+        return None
+    driver, dist = chosen
+    cache.set(lock_key, str(driver.id), timeout=settings.DISPATCH_OFFER_TTL_S)
     offer = RideOffer.objects.create(
         ride=ride,
         driver=driver,

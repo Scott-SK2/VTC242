@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.permissions import IsDriver, IsPassenger, IsPassengerOrDriver
+from apps.common.uploads import check_own_upload
 
 from . import services
 from .models import BookingStatus, ListingStatus, RentalBooking, RentalListing, RentalMode
@@ -81,6 +82,7 @@ class MyListingsView(APIView):
     def post(self, request):
         ser = RentalListingInputSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        check_own_upload(ser.validated_data.get("photo_url"), request)
         listing = services.create_listing(request.user, ser.validated_data)
         return Response(RentalListingSerializer(listing).data, status=201)
 
@@ -92,6 +94,7 @@ class MyListingDetailView(APIView):
         listing = get_object_or_404(RentalListing, pk=listing_id, owner=request.user)
         ser = RentalListingPatchSerializer(data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
+        check_own_upload(ser.validated_data.get("photo_url"), request)
         listing = services.update_listing(request.user, listing, ser.validated_data)
         return Response(RentalListingSerializer(listing).data)
 

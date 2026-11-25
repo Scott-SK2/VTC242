@@ -1,5 +1,6 @@
 import { registerSW } from 'virtual:pwa-register';
 import { useUiStore, type BeforeInstallPromptEvent } from '@/shared/store/ui';
+import i18n from '@/shared/i18n';
 
 const INSTALL_PROMPTED_KEY = 'vtc242.installPrompted';
 
@@ -12,15 +13,16 @@ export function setupPwa() {
   });
   window.addEventListener('appinstalled', () => {
     useUiStore.getState().setInstallPrompt(null);
-    useUiStore.getState().toast('Application installée', 'success');
+    useUiStore.getState().toast(i18n.t('pwa.installed'), 'success');
   });
   window.addEventListener('online', () => useUiStore.getState().setOnline(true));
   window.addEventListener('offline', () => useUiStore.getState().setOnline(false));
 
   const updateSW = registerSW({
+    // Bandeau non bloquant (un window.confirm figeait l'application : offres, compte à
+    // rebours et envoi de position s'arrêtaient tant que la boîte restait ouverte)
     onNeedRefresh() {
-      if (window.confirm('Une nouvelle version de VTC 242 est disponible. Mettre à jour ?'))
-        void updateSW(true);
+      useUiStore.getState().setUpdateReady(() => void updateSW(true));
     },
     onRegisterError(e) {
       console.warn('SW', e);

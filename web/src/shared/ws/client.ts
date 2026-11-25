@@ -20,7 +20,12 @@ export const WS_BASE = wsBaseFrom(import.meta.env.VITE_API_URL);
 
 /**
  * Client WebSocket : ping 20 s, reconnexion 1/2/4/8 s, bus d'événements typé.
- * Le token est fourni par une fonction pour suivre le refresh de l'access JWT.
+ * Le token est fourni par une fonction pour suivre le refresh de l'access JWT ;
+ * `force` demande un token neuf (le précédent a été refusé par le serveur).
+ *
+ * Une seule socket « courante » : les événements d'une ancienne socket (dont la
+ * fermeture arrive après l'ouverture de la suivante) sont ignorés, sinon chaque
+ * changement de session laissait une socket orpheline qui doublait les événements.
  */
 export class WsClient {
   private socket: WebSocket | null = null;
@@ -31,14 +36,27 @@ export class WsClient {
   private attempt = 0;
   private wasOpen = false;
   private manualClose = false;
+  /** Numéro de la dernière tentative d'ouverture : une tentative dépassée (fermeture,
+   * changement de session pendant l'attente du token) abandonne. */
+  private openSeq = 0;
+  private forceToken = false;
   private queue: string[] = [];
   status: WsStatus = 'idle';
 
-  constructor(private getToken: () => Promise<string | null> | string | null) {}
+  constructor(private getToken: (opts: { force: boolean }) => Promise<string | null> | string | null) {}
 
   connect() {
     this.manualClose = false;
     void this.open();
+  }
+
+  /** Nouvelle connexion (changement de session) sans perdre le fait d'avoir déjà été
+   * connecté : `ws.open` sera émis avec reconnected=true pour resynchroniser l'écran. */
+  restart() {
+    const wasOpen = this.wasOpen;
+    this.close();
+    this.wasOpen = wasOpen;
+    this.connect();
   }
 
   private async open() {
@@ -47,25 +65,45 @@ export class WsClient {
       (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
     )
       return;
-    const token = await this.getToken();
-    if (!token || this.manualClose) return;
-    this.setStatus(this.attempt > 0 ? 'reconnecting' : 'connecting');
+    const seq = ++this.openSeq;
+    let token: string | null;
     try {
-      this.socket = new WebSocket(`${WS_BASE}?token=${encodeURIComponent(token)}`);
+      token = await this.getToken({ force: this.forceToken });
+    } catch {
+      token = null;
+    }
+    if (seq !== this.openSeq || this.manualClose) return;
+    this.forceToken = false;
+    if (!token) {
+      // session absente ou refresh impossible pour l'instant (réseau) : on réessaie
+      this.scheduleReconnect();
+      return;
+    }
+    // un autre appel a pu ouvrir une socket pendant l'attente du token
+    if (this.socket) return;
+    this.setStatus(this.attempt > 0 ? 'reconnecting' : 'connecting');
+    let sock: WebSocket;
+    try {
+      sock = new WebSocket(`${WS_BASE}?token=${encodeURIComponent(token)}`);
     } catch {
       this.scheduleReconnect();
       return;
     }
-    this.socket.onopen = () => {
+    this.socket = sock;
+    let opened = false;
+    sock.onopen = () => {
+      if (sock !== this.socket) return;
+      opened = true;
       const reconnected = this.wasOpen;
       this.wasOpen = true;
       this.attempt = 0;
       this.setStatus('open');
       this.startPing();
-      for (const msg of this.queue.splice(0)) this.socket?.send(msg);
+      for (const msg of this.queue.splice(0)) sock.send(msg);
       this.emit('ws.open', { reconnected });
     };
-    this.socket.onmessage = (ev) => {
+    sock.onmessage = (ev) => {
+      if (sock !== this.socket) return;
       let frame: Frame;
       try {
         frame = JSON.parse(String(ev.data)) as Frame;
@@ -75,20 +113,25 @@ export class WsClient {
       if (!frame || typeof frame.event !== 'string') return;
       this.emit(frame.event as keyof ServerEvents, frame.data as never, frame);
     };
-    this.socket.onclose = (ev) => {
+    sock.onclose = (ev) => {
+      if (sock !== this.socket) return; // ancienne socket : déjà remplacée
       this.stopPing();
       this.socket = null;
+      // refus d'authentification (token expiré) ou session changée côté serveur (4000 :
+      // déconnexion partout, blocage, changement de mode) : en redemander un neuf ; si le
+      // refresh est refusé (400/401), la déconnexion normale s'applique
+      if (!opened || ev.code === 4000 || ev.code === 4401 || ev.code === 4403) this.forceToken = true;
       this.emit('ws.close', { code: ev.code });
       if (!this.manualClose) this.scheduleReconnect();
       else this.setStatus('closed');
     };
-    this.socket.onerror = () => {
+    sock.onerror = () => {
       /* onclose suit toujours */
     };
   }
 
   private scheduleReconnect() {
-    if (this.reconnectTimer) return;
+    if (this.reconnectTimer || this.manualClose) return;
     const delay = BACKOFF_MS[Math.min(this.attempt, BACKOFF_MS.length - 1)] ?? 8000;
     this.attempt += 1;
     this.setStatus('reconnecting');
@@ -100,13 +143,16 @@ export class WsClient {
 
   close() {
     this.manualClose = true;
+    this.openSeq += 1;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
     this.stopPing();
-    this.socket?.close(1000, 'client');
+    const sock = this.socket;
     this.socket = null;
+    sock?.close(1000, 'client');
     this.attempt = 0;
     this.wasOpen = false;
+    this.queue = [];
     this.setStatus('closed');
   }
 

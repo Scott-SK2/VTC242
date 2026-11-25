@@ -37,5 +37,13 @@ class OtpRequestThrottle(FailOpenMixin, AnonRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": ident}
 
 
+class OtpIpThrottle(FailOpenMixin, AnonRateThrottle):
+    """Garde-fou par adresse IP sur la demande et la vérification des codes : un script qui
+    fait défiler des numéros ne peut pas déclencher des SMS payants sans limite. L'IP est
+    lue derrière NUM_PROXIES proxys de confiance (X-Forwarded-For non falsifiable)."""
+
+    scope = "otp_ip"
+
+
 class RideStartThrottle(FailOpenMixin, UserRateThrottle):
     scope = "start"

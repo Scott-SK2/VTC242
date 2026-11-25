@@ -59,7 +59,17 @@
     "to": "Au",
     "download": "Télécharger",
     "wsReconnecting": "Reconnexion au serveur…",
-    "map": "Carte"
+    "map": "Carte",
+    "sheetExpand": "Déplier le panneau",
+    "sheetCollapse": "Replier le panneau",
+    "secondsLeft_one": "{{count}} seconde",
+    "secondsLeft_other": "{{count}} secondes",
+    "reviews_one": "{{count}} avis",
+    "reviews_other": "{{count}} avis",
+    "seatsShort_one": "{{count}} pl.",
+    "seatsShort_other": "{{count}} pl.",
+    "perSeat": "/ place",
+    "notFound": "Introuvable."
   },
   "roles": {
     "passenger": "Passager",
@@ -144,7 +154,8 @@
     "expand": "Déplier le menu",
     "services": "Services",
     "rentals": "Locations",
-    "carpool": "Covoiturage"
+    "carpool": "Covoiturage",
+    "main": "Navigation principale"
   },
   "status": {
     "requested": "Demandée",
@@ -229,7 +240,8 @@
       "poi": "Lieu connu",
       "setOnMap": "Placer sur la carte",
       "notFoundTitle": "Adresse non reconnue",
-      "notFoundHint": "« {{q}} » ne correspond à aucune adresse connue. Touchez l'emplacement exact sur la carte, ou annulez pour choisir une suggestion de la liste."
+      "notFoundHint": "« {{q}} » ne correspond à aucune adresse connue. Touchez l'emplacement exact sur la carte, ou annulez pour choisir une suggestion de la liste.",
+      "failed": "Suggestions indisponibles pour le moment : vous pouvez saisir l’adresse ou la placer sur la carte."
     },
     "estimate": {
       "title": "Choisissez votre course",
@@ -497,7 +509,10 @@
     "failed": "Échouée",
     "expired": "Expirée",
     "service_payment": "Paiement de prestation",
-    "service_earning": "Gain de prestation"
+    "service_earning": "Gain de prestation",
+    "awaiting_approval": "À valider",
+    "processing": "En cours",
+    "rejected": "Rejeté"
   },
   "rating": {
     "stars": "{{n}} étoile(s)",
@@ -516,7 +531,13 @@
     "offlineBody": "VTC 242 a besoin d'une connexion pour commander ou suivre une course. Vérifiez votre réseau puis réessayez.",
     "notFoundTitle": "Page introuvable",
     "notFoundBody": "Cette adresse n'existe pas ou n'est plus disponible.",
-    "goHome": "Retour à l'accueil"
+    "goHome": "Retour à l'accueil",
+    "updateReady": "Une nouvelle version de VTC 242 est disponible.",
+    "newVersionTitle": "Nouvelle version disponible",
+    "newVersionBody": "L’application a été mise à jour. Rechargez la page pour continuer.",
+    "crashTitle": "Un problème est survenu",
+    "crashBody": "Cet écran n’a pas pu s’afficher. Rechargez la page ; si le problème persiste, contactez le support.",
+    "reload": "Recharger"
   },
   "admin": {
     "title": "Back-office",

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import timedelta
 
 import pyotp
+from django.core.cache import cache
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -14,7 +16,7 @@ from rest_framework.views import APIView
 
 from apps.accounts import services as account_services
 from apps.accounts.authentication import issue_tokens
-from apps.accounts.models import TOTP_ROLES, User
+from apps.accounts.models import TOTP_ROLES, User, UserRole
 from apps.accounts.serializers import UserSerializer
 from apps.carpool import services as carpool_services
 from apps.carpool.models import CarpoolTrip
@@ -72,6 +74,9 @@ class StaffListView(ListAPIView):
 
 
 # --- TOTP (section 9) ------------------------------------------------------------------
+TOTP_MAX_FAILS = 5
+
+
 class TotpSetupView(APIView):
     """Le setup ne requiert pas encore le TOTP (sinon impossible de l'activer)."""
 
@@ -80,6 +85,13 @@ class TotpSetupView(APIView):
         if user.role not in TOTP_ROLES:
             raise ApiError(
                 "TOTP réservé aux rôles admin et finance.", code="forbidden", status_code=403
+            )
+        token = getattr(request, "auth", None)
+        if user.totp_enabled and not (token and token.get("totp")):
+            # remplacer un TOTP actif exige d'avoir validé l'actuel : sinon le seul code SMS
+            # suffirait à désactiver la double authentification
+            raise ApiError(
+                "Validez d'abord votre code TOTP actuel.", code="totp_required", status_code=403
             )
         secret = pyotp.random_base32()
         user.totp_secret = secret
@@ -98,8 +110,31 @@ class TotpVerifyView(APIView):
         ser.is_valid(raise_exception=True)
         if not user.totp_secret:
             raise ApiError("Configurez d'abord le TOTP.", code="totp_not_setup")
-        if not pyotp.TOTP(user.totp_secret).verify(ser.validated_data["code"], valid_window=1):
+        fails_key = f"totp:fails:{user.pk}"
+        if (cache.get(fails_key) or 0) >= TOTP_MAX_FAILS:
+            raise ApiError(
+                "Trop d'essais : réessayez dans 15 minutes.", code="totp_locked", status_code=429
+            )
+        totp = pyotp.TOTP(user.totp_secret)
+        code = ser.validated_data["code"]
+        now = timezone.now()
+        matched = None
+        for offset in (0, -1, 1):  # tolérance d'un pas de 30 s
+            at = now + timedelta(seconds=30 * offset)
+            if totp.verify(code, for_time=at):
+                matched = totp.timecode(at)
+                break
+        used_key = f"totp:used:{user.pk}"
+        if matched is None or cache.get(used_key) == matched:
+            # code faux, ou déjà utilisé (rejeu d'un code intercepté)
+            try:
+                cache.add(fails_key, 0, timeout=15 * 60)
+                cache.incr(fails_key)
+            except ValueError:
+                cache.set(fails_key, 1, timeout=15 * 60)
             raise ApiError("Code TOTP invalide.", code="invalid_totp")
+        cache.delete(fails_key)
+        cache.set(used_key, matched, timeout=120)
         if not user.totp_enabled:
             user.totp_enabled = True
             user.save(update_fields=["totp_enabled"])
@@ -324,8 +359,9 @@ class DocumentReviewView(StaffView):
         doc.reviewed_by = request.user
         doc.reviewed_at = timezone.now()
         doc.save()
-        if doc.type == "vehicle_photo" and doc.status == DocumentStatus.APPROVED:
-            Vehicle.objects.filter(driver=doc.driver).update(is_verified=True)
+        # Une photo validée ne vérifie plus tous les véhicules d'office (un véhicule modifié,
+        # ex. passé en VIP, serait validé sans examen) : la vérification d'un véhicule se fait
+        # explicitement (bouton « Vérifier »), ou à la validation initiale du dossier.
         audit(request, "document.review", doc, {"status": doc.status, "note": doc.review_note})
         return Response(DriverDocumentSerializer(doc).data)
 
@@ -364,7 +400,9 @@ class PassengerActionView(StaffView):
     roles = ADMIN_SUPPORT
 
     def post(self, request, user_id, action):
-        user = get_object_or_404(User, pk=user_id)
+        # passagers et chauffeurs uniquement : les comptes du back-office se gèrent dans
+        # « Utilisateurs » (admin seulement)
+        user = get_object_or_404(User, pk=user_id, role__in=(UserRole.PASSENGER, UserRole.DRIVER))
         ser = ReasonSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         reason = ser.validated_data["reason"]

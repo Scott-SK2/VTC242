@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from urllib.parse import quote
 
@@ -15,7 +16,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common.exceptions import ApiError
-from apps.common.throttling import OtpRequestThrottle
+from apps.common.throttling import OtpIpThrottle, OtpRequestThrottle
+from apps.common.uploads import check_own_upload
 
 from . import services
 from .authentication import issue_tokens
@@ -37,7 +39,7 @@ UPLOAD_URL_TTL_S = 15 * 60
 class OtpRequestView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
-    throttle_classes = (OtpRequestThrottle,)
+    throttle_classes = (OtpRequestThrottle, OtpIpThrottle)
 
     def post(self, request):
         ser = OtpRequestSerializer(data=request.data)
@@ -48,6 +50,7 @@ class OtpRequestView(APIView):
 class OtpVerifyView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
+    throttle_classes = (OtpIpThrottle,)
 
     def post(self, request):
         ser = OtpVerifySerializer(data=request.data)
@@ -72,7 +75,10 @@ class ModeSwitchView(APIView):
 
     def post(self, request):
         target = str(request.data.get("role") or "")
-        device_id = request.data.get("device_id") or None
+        # l'appareil déjà lié à la session prime : un jeton intercepté ne peut pas
+        # réattribuer la place « appareil unique » du chauffeur à un autre appareil
+        token_device = request.auth.get("device") if request.auth is not None else None
+        device_id = token_device or request.data.get("device_id") or None
         result = services.switch_mode(request.user, target, device_id)
         return Response(
             {
@@ -109,7 +115,17 @@ class TokenRefreshView(APIView):
             old.blacklist()
         except TokenError:
             raise ApiError("Jeton déjà utilisé.", code="invalid_token", status_code=401)
-        return Response(issue_tokens(user, device_id=device, totp_ok=bool(old.get("totp"))))
+        totp_at = old.get("totp_at")
+        totp_ok = bool(
+            old.get("totp")
+            and totp_at
+            and time.time() - int(totp_at) < settings.ADMIN_SESSION_LIFETIME.total_seconds()
+        )
+        return Response(
+            issue_tokens(
+                user, device_id=device, totp_ok=totp_ok, totp_at=totp_at if totp_ok else None
+            )
+        )
 
 
 class LogoutView(APIView):
@@ -132,6 +148,7 @@ class MeView(APIView):
     def patch(self, request):
         ser = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
+        check_own_upload(ser.validated_data.get("photo_url"), request)
         ser.save()
         return Response(UserSerializer(request.user).data)
 
@@ -146,6 +163,15 @@ class PushSubscriptionView(APIView):
         ser.is_valid(raise_exception=True)
         ser.save()
         return Response({"ok": True}, status=201)
+
+    def delete(self, request):
+        """Désabonnement de cet appareil (à la déconnexion : plus de notification, ni de code
+        de départ, pour le compte précédent sur un téléphone partagé)."""
+        from .models import PushSubscription
+
+        endpoint = str(request.data.get("endpoint") or "")
+        PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+        return Response(status=204)
 
 
 class UploadRequestView(APIView):

@@ -26,7 +26,7 @@ export default function DriverProfilePage() {
             <div className="rounded-xl bg-gray-50 p-3">
               <div className="text-gray-500 text-xs">{t('driver.profile.rating')}</div>
               <div className="font-extrabold text-lg">★ {p.rating_avg?.toFixed(1) ?? '—'}</div>
-              <div className="text-xs text-gray-500">{p.rating_count} avis</div>
+              <div className="text-xs text-gray-500">{t('common.reviews', { count: p.rating_count })}</div>
             </div>
             <div className="rounded-xl bg-gray-50 p-3">
               <div className="text-gray-500 text-xs">{t('common.zone')}</div>

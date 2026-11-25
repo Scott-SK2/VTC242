@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { unsubscribePush } from '@/pwa/push';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +12,7 @@ import { formatDate } from '@/shared/utils/date';
 import { TextField } from './Field';
 import { Button } from './Button';
 import { Modal } from './Modal';
-import { ErrorBox } from './ErrorBox';
+import { ErrorBox, errorMessage } from './ErrorBox';
 import { toast } from '@/shared/store/ui';
 import { useUiStore } from '@/shared/store/ui';
 import { isStandalone } from '@/pwa';
@@ -54,7 +55,7 @@ export function ProfileForm({ photoRequired = false }: { photoRequired?: boolean
       setUser(u);
       void qc.invalidateQueries({ queryKey: ['me'] });
     } catch (e) {
-      toast((e as Error).message, 'error');
+      toast(errorMessage(e, t), 'error');
     } finally {
       setUploading(false);
     }
@@ -62,6 +63,7 @@ export function ProfileForm({ photoRequired = false }: { photoRequired?: boolean
 
   async function doLogout() {
     try {
+      await unsubscribePush();
       if (refresh) await authApi.logout(refresh);
     } catch {
       /* ignoré */

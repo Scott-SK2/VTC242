@@ -47,7 +47,7 @@ export default function CarpoolTripPage() {
   if (trip.error || !trip.data)
     return (
       <MobilePage title={t('carpool.title')}>
-        <ErrorBox error={trip.error ?? new Error('not found')} onRetry={() => void trip.refetch()} />
+        <ErrorBox error={trip.error ?? new Error(t('common.notFound'))} onRetry={() => void trip.refetch()} />
       </MobilePage>
     );
   const tr = trip.data;

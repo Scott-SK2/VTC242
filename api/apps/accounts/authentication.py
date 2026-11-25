@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 
 from rest_framework_simplejwt.authentication import JWTAuthentication as BaseJWTAuthentication
@@ -11,10 +12,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User, UserRole
 
 
-def issue_tokens(user: User, device_id: str | None = None, totp_ok: bool = False) -> dict:
+def issue_tokens(
+    user: User, device_id: str | None = None, totp_ok: bool = False, totp_at: int | None = None
+) -> dict:
     refresh = RefreshToken.for_user(user)
     refresh["role"] = user.role
     refresh["totp"] = totp_ok
+    if totp_ok:
+        # heure de la validation TOTP : la session privilégiée expire au bout de
+        # ADMIN_SESSION_LIFETIME même si les jetons sont renouvelés
+        refresh["totp_at"] = totp_at or int(time.time())
     if device_id:
         refresh["device"] = device_id
     access = refresh.access_token

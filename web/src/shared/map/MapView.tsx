@@ -82,6 +82,9 @@ export default function MapView({
   const markersRef = useRef(new Map<string, { marker: Marker; sig: string }>());
   const onClickRef = useRef(onClick);
   onClickRef.current = onClick;
+  // l'utilisateur a déplacé la carte à la main : on ne la recentre plus à chaque position GPS
+  // (sinon impossible de placer un point, la carte revenait sur soi toutes les 1 à 3 s)
+  const userMovedRef = useRef(false);
 
   // Initialisation
   useEffect(() => {
@@ -100,6 +103,9 @@ export default function MapView({
       syncRoutes(map, routes);
       syncPolygon(map, polygon);
     });
+    map.on('dragstart', () => {
+      userMovedRef.current = true;
+    });
     map.on('click', (e: maplibregl.MapMouseEvent) =>
       onClickRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }),
     );
@@ -114,9 +120,14 @@ export default function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Changement d'écran (fitKey) : le suivi automatique reprend
+  useEffect(() => {
+    userMovedRef.current = false;
+  }, [fitKey]);
+
   // Centre
   useEffect(() => {
-    if (!mapRef.current || !center || fit?.length) return;
+    if (!mapRef.current || !center || fit?.length || userMovedRef.current) return;
     mapRef.current.easeTo({ center: [center.lng, center.lat], duration: 400 });
   }, [center?.lat, center?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -148,7 +159,7 @@ export default function MapView({
         markersRef.current.delete(id);
       }
     }
-    if (follow) {
+    if (follow && !userMovedRef.current) {
       const target = markers.find((m) => m.kind === 'driver') ?? markers.find((m) => m.kind === 'me');
       if (target) map.easeTo({ center: [target.lng, target.lat], duration: 800 });
     }

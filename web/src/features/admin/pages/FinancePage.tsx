@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/shared/api/endpoints';
 import type { PayoutRequest, ReconciliationResult, Transaction } from '@/shared/api/types';
 import { AdminPage, DataTable, KpiCard, Pager, useCursorQuery, type Column } from '../components';
-import { Badge, Button, ErrorBox, Money, type BadgeTone } from '@/shared/ui';
+import { Badge, Button, ErrorBox, Money, errorMessage, type BadgeTone } from '@/shared/ui';
 import { formatMoney } from '@/shared/utils/money';
 import { formatDateTime } from '@/shared/utils/date';
 import { toast } from '@/shared/store/ui';
@@ -62,7 +62,7 @@ export default function FinancePage() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      toast(errorMessage(e, t), 'error');
     }
   }
 
@@ -119,7 +119,7 @@ export default function FinancePage() {
     {
       key: 'status',
       header: t('common.status'),
-      render: (p) => <Badge tone={tone[p.status] ?? 'neutral'}>{p.status}</Badge>,
+      render: (p) => <Badge tone={tone[p.status] ?? 'neutral'}>{t(`transactions.${p.status}`)}</Badge>,
     },
     {
       key: 'actions',
@@ -206,6 +206,8 @@ export default function FinancePage() {
               'refund',
               'cancellation_fee',
               'adjustment',
+              'service_payment',
+              'service_earning',
             ].map((k) => (
               <option key={k} value={k}>
                 {t(`transactions.${k}`)}

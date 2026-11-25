@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { unsubscribePush } from '@/pwa/push';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/shared/store/auth';
@@ -55,6 +56,7 @@ export default function AdminLayout() {
 
   async function doLogout() {
     try {
+      await unsubscribePush();
       if (refresh) await authApi.logout(refresh);
     } catch {
       /* ignoré */

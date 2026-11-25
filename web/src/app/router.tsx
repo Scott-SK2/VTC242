@@ -5,6 +5,7 @@ import { MobileLayout } from './layouts/MobileLayout';
 import { FullPageSpinner } from '@/shared/ui/Spinner';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { RouteErrorPage } from './pages/RouteErrorPage';
 import { OfflinePage } from './pages/OfflinePage';
 import { InstallPage } from './pages/InstallPage';
 import { RootLayout } from './layouts/RootLayout';
@@ -76,7 +77,7 @@ const adminShell: ReactNode = (
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
-    errorElement: <NotFoundPage />,
+    errorElement: <RouteErrorPage />,
     children: [
       { path: '/', element: <RootRedirect /> },
       { path: '/login', element: <LoginPage /> },

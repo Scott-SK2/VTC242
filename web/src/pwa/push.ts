@@ -33,3 +33,18 @@ export async function subscribePush(): Promise<boolean> {
     return false;
   }
 }
+
+/** À la déconnexion : cet appareil ne reçoit plus les notifications du compte (téléphone
+ *  partagé : ni course, ni code de départ pour le compte précédent). */
+export async function unsubscribePush(): Promise<void> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return;
+    await meApi.pushUnsubscribe(sub.endpoint).catch(() => undefined);
+    await sub.unsubscribe();
+  } catch {
+    /* ignoré */
+  }
+}

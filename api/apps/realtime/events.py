@@ -50,3 +50,15 @@ def send_to_ride(ride_id, event: str, data: dict[str, Any]) -> None:
 
 def send_to_admins(event: str, data: dict[str, Any]) -> None:
     _send(ADMIN_GROUP, event, data)
+
+
+def close_user_sockets(user_id) -> None:
+    """Ferme les WebSockets ouverts d'un compte (blocage, déconnexion partout, changement de
+    mode, suppression) : l'appli se reconnecte avec ses nouveaux jetons, ou pas du tout."""
+    layer = get_channel_layer()
+    if layer is None:
+        return
+    try:
+        async_to_sync(layer.group_send)(user_group(user_id), {"type": "ws.force_close"})
+    except Exception as exc:  # pragma: no cover - couche indisponible
+        log.warning("Fermeture WS impossible : %s", exc)

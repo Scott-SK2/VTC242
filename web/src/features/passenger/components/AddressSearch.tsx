@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { geoApi } from '@/shared/api/endpoints';
 import type { AutocompleteResult, LatLng, Place } from '@/shared/api/types';
@@ -23,12 +23,23 @@ export function AddressSearch({
   const [q, setQ] = useState(initial);
   const [results, setResults] = useState<AutocompleteResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const inputId = useId();
+  // Position lue au moment de la requête : chaque nouveau point GPS ne doit pas relancer la
+  // recherche (la liste changeait sous le doigt au moment de toucher une suggestion)
+  const nearRef = useRef(near);
+  nearRef.current = near;
 
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) {
+      // champ vidé : la requête en cours ne doit pas ramener d'anciens résultats
+      abortRef.current?.abort();
+      abortRef.current = null;
       setResults([]);
+      setLoading(false);
+      setFailed(false);
       return;
     }
     const id = setTimeout(() => {
@@ -36,19 +47,29 @@ export function AddressSearch({
       const ctrl = new AbortController();
       abortRef.current = ctrl;
       setLoading(true);
+      setFailed(false);
       geoApi
-        .autocomplete(term, near ?? undefined, ctrl.signal)
-        .then((r) => setResults(r.results ?? []))
-        .catch(() => undefined)
-        .finally(() => setLoading(false));
+        .autocomplete(term, nearRef.current ?? undefined, ctrl.signal)
+        .then((r) => {
+          if (!ctrl.signal.aborted) setResults(r.results ?? []);
+        })
+        .catch(() => {
+          if (!ctrl.signal.aborted) setFailed(true);
+        })
+        .finally(() => {
+          if (!ctrl.signal.aborted) setLoading(false);
+        });
     }, 250);
     return () => clearTimeout(id);
-  }, [q, near]);
+  }, [q]);
 
   return (
     <div>
-      <label className="label">{label}</label>
+      <label className="label" htmlFor={inputId}>
+        {label}
+      </label>
       <input
+        id={inputId}
         className="input"
         placeholder={t('passenger.search.placeholder')}
         value={q}
@@ -69,6 +90,11 @@ export function AddressSearch({
         }}
       />
       <p className="mt-1 text-xs text-gray-500">{t('passenger.search.hint')}</p>
+      {failed && (
+        <p className="mt-1 text-xs text-alert" role="status">
+          {t('passenger.search.failed')}
+        </p>
+      )}
       <ul className="mt-2 divide-y divide-gray-100 max-h-64 overflow-y-auto" role="listbox">
         {results.map((r, i) => (
           <li key={`${r.lat}-${r.lng}-${i}`}>

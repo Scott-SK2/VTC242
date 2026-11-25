@@ -241,7 +241,7 @@ export default function DriverCarpoolPage() {
             <ErrorBox error={act.error} />
           </>
         ) : (
-          <ErrorBox error={detail.error ?? new Error('not found')} />
+          <ErrorBox error={detail.error ?? new Error(t('common.notFound'))} />
         )}
       </Modal>
 

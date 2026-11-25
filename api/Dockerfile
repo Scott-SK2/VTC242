@@ -16,7 +16,7 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
-RUN SECRET_KEY=build DATABASE_URL=postgis://x:x@localhost/x python manage.py collectstatic --noinput
+RUN SECRET_KEY=build-only-not-a-real-secret-0123456789abcdef DATABASE_URL=postgis://x:x@localhost/x python manage.py collectstatic --noinput
 
 RUN useradd -m app && chown -R app /app
 USER app

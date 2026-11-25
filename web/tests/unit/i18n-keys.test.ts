@@ -13,6 +13,11 @@ function files(dir: string): string[] {
 }
 
 function has(obj: unknown, key: string): boolean {
+  // clé au pluriel (t('x', { count })) : i18next lit x_one / x_other
+  return hasExact(obj, key) || (hasExact(obj, `${key}_one`) && hasExact(obj, `${key}_other`));
+}
+
+function hasExact(obj: unknown, key: string): boolean {
   let cur: unknown = obj;
   for (const part of key.split('.')) {
     if (cur && typeof cur === 'object' && part in (cur as Record<string, unknown>)) {

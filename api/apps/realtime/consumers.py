@@ -38,6 +38,10 @@ class ClientConsumer(AsyncJsonWebsocketConsumer):
             {"event": message["event"], "ts": message["ts"], "data": message["data"]}
         )
 
+    async def ws_force_close(self, message):
+        # 4000 : session changée (nouveaux jetons) ; l'appli se reconnecte si elle le peut
+        await self.close(code=4000)
+
     async def receive_json(self, content, **kwargs):
         event = content.get("event")
         data = content.get("data") or {}
@@ -61,8 +65,6 @@ class ClientConsumer(AsyncJsonWebsocketConsumer):
             result = await self._chat(data.get("ride_id"), data.get("body"), data.get("preset"))
             if result:
                 await self.send_frame("error", result)
-        elif event == "subscribe_ride":
-            await self.channel_layer.group_add(f"ride.{data.get('ride_id')}", self.channel_name)
 
     @database_sync_to_async
     def _record_positions(self, positions):

@@ -62,7 +62,9 @@ export default function RidePage() {
   >(null);
   const [deviation, setDeviation] = useState<{ distance_off_m: number; police: string } | null>(null);
   const [positionLostSince, setPositionLostSince] = useState<string | null>(null);
+  // motifs séparés : le texte d'une annulation ne doit pas réapparaître dans le litige
   const [reason, setReason] = useState('');
+  const [disputeReason, setDisputeReason] = useState('');
   const [rated, setRated] = useState(false);
 
   useEffect(() => {
@@ -109,9 +111,12 @@ export default function RidePage() {
   }, [ride?.status, nav]);
 
   const cancel = useMutation({
-    mutationFn: () => ridesApi.cancel(id as string, reason || 'passenger'),
+    // motif passé à l'appel (et non lu dans l'état, encore à l'ancienne valeur au moment du clic)
+    mutationFn: (why?: string) => ridesApi.cancel(id as string, why || reason || 'passenger'),
     onSuccess: (r) => {
       qc.setQueryData(qk.ride(r.id), r);
+      // la course n'est plus active : l'accueil ne doit plus y rediriger
+      qc.setQueryData(qk.activeRide, null);
       void qc.invalidateQueries({ queryKey: qk.activeRide });
       void qc.invalidateQueries({ queryKey: qk.wallet });
       setOverlay('none');
@@ -126,7 +131,7 @@ export default function RidePage() {
     },
   });
   const dispute = useMutation({
-    mutationFn: () => ridesApi.dispute(id as string, reason),
+    mutationFn: () => ridesApi.dispute(id as string, disputeReason),
     onSuccess: (d) => {
       patch({ dispute: d });
       toast(t('passenger.done.disputeSent'), 'success');
@@ -170,7 +175,7 @@ export default function RidePage() {
   if (error || !ride)
     return (
       <div className="p-4">
-        <ErrorBox error={error ?? new Error('not found')} onRetry={() => void refetch()} />
+        <ErrorBox error={error ?? new Error(t('common.notFound'))} onRetry={() => void refetch()} />
       </div>
     );
 
@@ -276,8 +281,7 @@ export default function RidePage() {
               block
               loading={cancel.isPending}
               onClick={() => {
-                setReason('passenger_cancelled_before_accept');
-                cancel.mutate();
+                cancel.mutate('passenger_cancelled_before_accept');
               }}
             >
               {t('passenger.searching.cancelFree')}
@@ -441,8 +445,7 @@ export default function RidePage() {
               className="mt-2"
               loading={cancel.isPending}
               onClick={() => {
-                setReason('passenger_cancelled_no_driver');
-                cancel.mutate();
+                cancel.mutate('passenger_cancelled_no_driver');
               }}
             >
               {t('passenger.searching.cancelRefund')}
@@ -482,7 +485,7 @@ export default function RidePage() {
             <Button variant="secondary" onClick={() => setOverlay('none')}>
               {t('common.back')}
             </Button>
-            <Button variant="danger" loading={cancel.isPending} onClick={() => cancel.mutate()}>
+            <Button variant="danger" loading={cancel.isPending} onClick={() => cancel.mutate(undefined)}>
               {t('passenger.found.cancelConfirm', { fee: formatMoney(ride.cancellation_fee_preview ?? '0') })}
             </Button>
           </>
@@ -505,7 +508,7 @@ export default function RidePage() {
         footer={
           <Button
             loading={dispute.isPending}
-            disabled={reason.trim().length < 5}
+            disabled={disputeReason.trim().length < 5}
             onClick={() => dispute.mutate()}
           >
             {t('common.send')}
@@ -515,8 +518,8 @@ export default function RidePage() {
         <TextAreaField
           label={t('common.reason')}
           hint={t('passenger.done.disputeHint')}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          value={disputeReason}
+          onChange={(e) => setDisputeReason(e.target.value)}
         />
         <ErrorBox error={dispute.error} />
       </Modal>

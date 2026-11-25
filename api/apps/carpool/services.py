@@ -132,17 +132,22 @@ def _release_booking(booking: CarpoolBooking) -> None:
 
 @transaction.atomic
 def passenger_cancel(booking_id, passenger, reason: str = "") -> CarpoolBooking:
+    trip_id = (
+        CarpoolBooking.objects.filter(pk=booking_id, passenger=passenger)
+        .values_list("trip_id", flat=True)
+        .first()
+    )
+    if trip_id is None:
+        raise NotFound("Réservation introuvable.")
+    # même ordre de verrous que le conducteur (trajet puis réservation) : pas d'interblocage
+    trip = _locked_trip(trip_id)
     booking = (
         CarpoolBooking.objects.select_for_update(of=("self",))
         .select_related("trip", "trip__driver", "passenger")
-        .filter(pk=booking_id, passenger=passenger)
-        .first()
+        .get(pk=booking_id)
     )
-    if booking is None:
-        raise NotFound("Réservation introuvable.")
     if booking.status != CarpoolBookingStatus.CONFIRMED:
         raise Conflict("Cette réservation ne peut plus être annulée.", code="invalid_transition")
-    trip = _locked_trip(booking.trip_id)
     if trip.status != TripStatus.PUBLISHED:
         raise Conflict("Le trajet a déjà démarré.", code="invalid_transition")
     fee = cancellation_preview(booking)
@@ -190,6 +195,8 @@ def driver_action(trip_id, driver_user, action: str, reason: str = "") -> Carpoo
     trip = _locked_trip(trip_id)
     if trip.driver_id != driver_user.id:
         raise NotFound("Trajet introuvable.")
+    if action in ("start", "complete"):
+        _approved_driver(driver_user)  # un conducteur suspendu ne peut plus encaisser
     now = timezone.now()
     if action == "cancel":
         if trip.status not in (TripStatus.PUBLISHED, TripStatus.IN_PROGRESS):
@@ -226,34 +233,43 @@ def driver_action(trip_id, driver_user, action: str, reason: str = "") -> Carpoo
     elif action == "complete":
         if trip.status != TripStatus.IN_PROGRESS:
             raise Conflict("Le trajet n'est pas en cours.", code="invalid_transition")
-        for b in _confirmed_bookings(trip):
-            commission = round_franc(d(b.price_total) * settings.CARPOOL_COMMISSION_RATE)
-            if b.price_total > ZERO:
-                result = payments.settle_service(
-                    b.passenger,
-                    trip.driver,
-                    b.price_total,
-                    commission,
-                    kind=KIND,
-                    reference=str(b.id),
-                )
-                b.commission_amount = result["commission"]
-            else:
-                b.commission_amount = ZERO
-            b.status = CarpoolBookingStatus.COMPLETED
-            b.completed_at = now
-            b.save(update_fields=["status", "commission_amount", "completed_at", "updated_at"])
-        trip.status = TripStatus.COMPLETED
-        trip.completed_at = now
-        trip.save(update_fields=["status", "completed_at", "updated_at"])
-        transaction.on_commit(
-            lambda: _broadcast_trip(
-                trip, "Covoiturage terminé", "Merci d'avoir voyagé avec VTC 242."
+        if now < trip.departure_at:
+            raise Conflict(
+                "Le trajet ne peut être terminé qu'après l'heure de départ prévue.",
+                code="too_early",
             )
-        )
+        _complete_trip(trip)
     else:
         raise NotFound("Action inconnue.")
     return trip
+
+
+def _complete_trip(trip: CarpoolTrip) -> None:
+    """Règlement des places confirmées au conducteur, puis trajet terminé."""
+    now = timezone.now()
+    for b in _confirmed_bookings(trip):
+        commission = round_franc(d(b.price_total) * settings.CARPOOL_COMMISSION_RATE)
+        if b.price_total > ZERO:
+            result = payments.settle_service(
+                b.passenger,
+                trip.driver,
+                b.price_total,
+                commission,
+                kind=KIND,
+                reference=str(b.id),
+            )
+            b.commission_amount = result["commission"]
+        else:
+            b.commission_amount = ZERO
+        b.status = CarpoolBookingStatus.COMPLETED
+        b.completed_at = now
+        b.save(update_fields=["status", "commission_amount", "completed_at", "updated_at"])
+    trip.status = TripStatus.COMPLETED
+    trip.completed_at = now
+    trip.save(update_fields=["status", "completed_at", "updated_at"])
+    transaction.on_commit(
+        lambda: _broadcast_trip(trip, "Covoiturage terminé", "Merci d'avoir voyagé avec VTC 242.")
+    )
 
 
 def _expired_notifier(trip: CarpoolTrip):
@@ -286,5 +302,16 @@ def expire_trips() -> int:
             trip.cancelled_at = now
             trip.save(update_fields=["status", "cancelled_at", "updated_at"])
             transaction.on_commit(_expired_notifier(trip))
+            n += 1
+    # démarrés mais jamais terminés : clôture automatique (fonds non bloqués à vie)
+    for trip_id in CarpoolTrip.objects.filter(
+        status=TripStatus.IN_PROGRESS,
+        departure_at__lt=timezone.now() - timedelta(hours=settings.CARPOOL_AUTO_COMPLETE_HOURS),
+    ).values_list("id", flat=True):
+        with transaction.atomic():
+            trip = _locked_trip(trip_id)
+            if trip.status != TripStatus.IN_PROGRESS:
+                continue
+            _complete_trip(trip)
             n += 1
     return n

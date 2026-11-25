@@ -7,25 +7,47 @@ import type { ServerEvents } from './events';
 export * from './client';
 export * from './events';
 
-/** Instance unique partagée par toute l'application. */
-export const ws = new WsClient(async () => {
+/** Secondes restantes avant l'expiration d'un JWT (exp), null si illisible. */
+export function jwtSecondsLeft(token: string, now = Date.now()): number | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const exp = (JSON.parse(json) as { exp?: number }).exp;
+    return typeof exp === 'number' ? exp - now / 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Instance unique partagée par toute l'application. Le token est renouvelé s'il expire
+ * dans moins de 30 s ou s'il vient d'être refusé (sinon la reconnexion après une mise en
+ * veille de plus de 15 min réessayait sans fin avec un token périmé). */
+export const ws = new WsClient(async ({ force }) => {
   const s = useAuthStore.getState();
-  if (s.accessToken) return s.accessToken;
+  if (s.accessToken && !force) {
+    const left = jwtSecondsLeft(s.accessToken);
+    if (left === null || left > 30) return s.accessToken;
+  }
+  if (!s.refreshToken) return s.accessToken;
   return refreshAccessToken();
 });
 
-/** Ouvre la connexion tant qu'un utilisateur est connecté. */
+/** Ouvre la connexion tant qu'un utilisateur est connecté. Le simple renouvellement de
+ * l'access token ne rouvre pas la socket (le serveur n'authentifie qu'à la connexion) ;
+ * un changement d'utilisateur ou de mode, si. */
 export function useWsConnection() {
-  const token = useAuthStore((s) => s.accessToken);
-  const refresh = useAuthStore((s) => s.refreshToken);
+  const signedIn = useAuthStore((s) => Boolean(s.accessToken || s.refreshToken));
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const role = useAuthStore((s) => s.user?.role ?? null);
   useEffect(() => {
-    if (!token && !refresh) {
+    if (!signedIn) {
       ws.close();
       return;
     }
-    ws.connect();
-    return () => ws.close();
-  }, [token, refresh]);
+    ws.restart();
+  }, [signedIn, userId, role]);
+  useEffect(() => () => ws.close(), []);
 }
 
 export function useWsStatus(): WsStatus {
