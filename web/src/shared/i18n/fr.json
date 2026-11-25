@@ -758,7 +758,12 @@
     "account": "Compte",
     "memberSince": "Membre depuis {{date}}",
     "photoRequired": "Ajoutez une photo de profil : elle est obligatoire pour conduire.",
-    "driverActivity": "Mon activité de chauffeur"
+    "driverActivity": "Mon activité de chauffeur",
+    "nameTitle": "Comment vous appelez-vous ?",
+    "nameHint": "Votre prénom est montré à l'autre partie pendant la course ; votre numéro n'est jamais partagé.",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "nameSaved": "Merci, votre nom est enregistré."
   },
   "tripTimer": {
     "waiting": "Attente : {{time}}",

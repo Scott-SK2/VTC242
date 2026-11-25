@@ -6,7 +6,17 @@ type Handler<K extends keyof ServerEvents> = (data: ServerEvents[K], frame: Fram
 const BACKOFF_MS = [1000, 2000, 4000, 8000];
 const PING_MS = 20_000;
 
-export const WS_BASE = `${(import.meta.env.VITE_WS_URL ?? 'ws://localhost:8000').replace(/\/$/, '')}/ws/`;
+/**
+ * Le temps réel est servi par la même API : son adresse se déduit de VITE_API_URL
+ * (https → wss, http → ws). Plus de seconde variable à tenir à jour : un VITE_WS_URL
+ * resté sur un ancien serveur laissait l'application bloquée sur « Reconnexion au serveur… ».
+ */
+export function wsBaseFrom(apiUrl: string | undefined): string {
+  const base = (apiUrl || 'http://localhost:8000').replace(/\/$/, '');
+  return `${base.replace(/^http(s?):\/\//, (_m, s: string) => `ws${s}://`)}/ws/`;
+}
+
+export const WS_BASE = wsBaseFrom(import.meta.env.VITE_API_URL);
 
 /**
  * Client WebSocket : ping 20 s, reconnexion 1/2/4/8 s, bus d'événements typé.

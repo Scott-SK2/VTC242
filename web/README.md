@@ -10,7 +10,7 @@ React 18 · Vite 5 · TypeScript strict · React Router 6 · TanStack Query 5 ·
 
 ```bash
 cd web
-cp .env.example .env        # renseigner VITE_API_URL / VITE_WS_URL au minimum
+cp .env.example .env        # renseigner VITE_API_URL au minimum
 npm install
 npm run dev                 # http://localhost:5173
 ```
@@ -22,7 +22,6 @@ Prérequis : Node 22+, npm 10+. Le backend Django doit tourner (par défaut `htt
 | Variable | Rôle |
 |---|---|
 | `VITE_API_URL` | URL de l'API sans `/api/v1` (ex. `http://localhost:8000`) |
-| `VITE_WS_URL` | URL du WebSocket sans `/ws/` (ex. `ws://localhost:8000`) |
 | `VITE_MAPTILER_KEY` | Clé MapTiler (style vectoriel `streets-v2`). Absente : tuiles raster `tile.openstreetmap.org` |
 | `VITE_VAPID_PUBLIC_KEY` | Clé publique VAPID pour Web Push (facultatif) |
 | `VITE_SENTRY_DSN` | DSN Sentry ; le SDK n'est chargé que si la variable est définie |
@@ -70,4 +69,4 @@ vercel.json        rewrites SPA vers /index.html, cache long sur /assets/*
 
 ## Déploiement (Vercel)
 
-Build `npm run build`, sortie `dist/`. `vercel.json` réécrit toutes les routes vers `/index.html` et pose `Cache-Control: public, max-age=31536000, immutable` sur `/assets/*`. Variables à définir dans le projet Vercel : `VITE_API_URL`, `VITE_WS_URL`, `VITE_MAPTILER_KEY`, `VITE_VAPID_PUBLIC_KEY`, `VITE_SENTRY_DSN`.
+Build `npm run build`, sortie `dist/`. `vercel.json` réécrit toutes les routes vers `/index.html` et pose `Cache-Control: public, max-age=31536000, immutable` sur `/assets/*`. Variables à définir dans le projet Vercel : `VITE_API_URL` (le WebSocket en est déduit : `https` → `wss`), `VITE_MAPTILER_KEY`, `VITE_VAPID_PUBLIC_KEY`, `VITE_SENTRY_DSN`.

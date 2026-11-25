@@ -183,7 +183,7 @@ Alert : `{ "id", "type": "deviation|emergency|otp_locked|detour|position_lost|pr
 
 ## WebSocket
 
-URL : `{VITE_WS_URL}/ws/?token=<access>`. Trame : `{ "event", "ts", "data" }`. Ping client toutes les 20 s (`{ "event": "ping" }` → `{ "event": "pong" }`).
+URL : `{VITE_API_URL}/ws/?token=<access>` en `wss://` (même serveur que l'API). Trame : `{ "event", "ts", "data" }`. Ping client toutes les 20 s (`{ "event": "ping" }` → `{ "event": "pong" }`).
 
 | Événement | Sens | data |
 |---|---|---|

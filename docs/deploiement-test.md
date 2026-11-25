@@ -28,7 +28,7 @@ Réglages à faire dans Render → `vtc242-api` → **Environment** une fois l'U
    - **Framework Preset** : Vite (détecté automatiquement) ; build `npm run build`, output `dist` ;
    - **Environment Variables** :
      - `VITE_API_URL` = `https://<votre-service>.onrender.com`
-     - `VITE_WS_URL` = `wss://<votre-service>.onrender.com`
+       (le temps réel utilise la même adresse en `wss://`, il n'y a plus de `VITE_WS_URL` à renseigner)
      - `VITE_MAPTILER_KEY` = clé gratuite MapTiler (facultatif : sans clé, tuiles OSM raster)
 4. **Deploy**. L'URL est du type `https://vtc242-xxxx.vercel.app`.
 5. Retournez dans Render et renseignez `FRONTEND_URL` avec cette URL (redéploiement automatique).
