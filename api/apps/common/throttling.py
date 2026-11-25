@@ -29,8 +29,12 @@ class OtpRequestThrottle(FailOpenMixin, AnonRateThrottle):
     scope = "otp"
 
     def get_cache_key(self, request, view):
-        phone = (request.data or {}).get("phone_number") or self.get_ident(request)
-        return self.cache_format % {"scope": self.scope, "ident": phone}
+        raw = str((request.data or {}).get("phone_number") or "")
+        # Clé sur les chiffres seuls : « 06 123 45 67 » et « +242061234567 »
+        # partagent le même compteur (et la clé reste valide pour le cache).
+        digits = "".join(ch for ch in raw if ch.isdigit())[-9:]
+        ident = digits or self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ident}
 
 
 class RideStartThrottle(FailOpenMixin, UserRateThrottle):

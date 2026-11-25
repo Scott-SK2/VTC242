@@ -21,7 +21,7 @@ def load_gpx(path: str) -> list[tuple[float, float]]:
     ns = {"g": "http://www.topografix.com/GPX/1/1"}
     root = ET.parse(path).getroot()
     pts = root.findall(".//g:trkpt", ns) or root.findall(".//trkpt")
-    return [(float(p.get("lat")), float(p.get("lon"))) for p in pts]
+    return [(float(p.get("lat") or 0), float(p.get("lon") or 0)) for p in pts]
 
 
 def straight(
@@ -48,9 +48,9 @@ def main() -> None:
     if args.gpx:
         pts = load_gpx(args.gpx)
     else:
-        a = tuple(map(float, args.src.split(",")))
-        b = tuple(map(float, args.dst.split(",")))
-        pts = straight(a, b)
+        a_lat, a_lng = map(float, args.src.split(","))
+        b_lat, b_lng = map(float, args.dst.split(","))
+        pts = straight((a_lat, a_lng), (b_lat, b_lng))
     if args.deviate:
         mid = len(pts) // 2
         dlat = args.deviate / 111_320
