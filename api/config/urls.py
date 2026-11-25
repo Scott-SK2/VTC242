@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.common.views import HealthView, MetricsView
@@ -27,3 +27,9 @@ urlpatterns = [
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+elif not settings.R2_BUCKET:
+    # Profil de test sans R2 : l'API sert elle-même les fichiers téléversés (noms aléatoires
+    # non devinables ; disque éphémère sur Render, voir docs/reste-a-faire.md).
+    from apps.common.views import media_view
+
+    urlpatterns += [re_path(r"^media/(?P<path>uploads/.+)$", media_view, name="media")]
