@@ -15,7 +15,7 @@ import {
 import { qk, useActiveRide, useRide } from '@/shared/api/hooks';
 import { driversApi, ridesApi } from '@/shared/api/endpoints';
 import { isApiError } from '@/shared/api/client';
-import { ws, useWsEvent } from '@/shared/ws';
+import { useWsEvent } from '@/shared/ws';
 import type { Offer, Ride } from '@/shared/api/types';
 import { BRAZZAVILLE } from '@/shared/utils/geo';
 import { formatTime } from '@/shared/utils/date';
@@ -93,10 +93,22 @@ export default function DriverHomePage() {
   const respond = useMutation({
     mutationFn: async (accepted: boolean) => {
       if (!offer) return null;
-      ws.send('ride.offer_response', { ride_id: offer.ride_id, accepted });
-      if (accepted) return ridesApi.accept(offer.ride_id);
-      await ridesApi.decline(offer.ride_id).catch(() => undefined);
-      return null;
+      // Une seule voie (l'API REST, qui renvoie la course). L'envoi doublé par WebSocket
+      // acceptait la course puis faisait échouer l'appel REST (« déjà attribuée »).
+      if (!accepted) {
+        await ridesApi.decline(offer.ride_id).catch(() => undefined);
+        return null;
+      }
+      try {
+        return await ridesApi.accept(offer.ride_id);
+      } catch (e) {
+        // 409 alors que la course est bien la nôtre (double appui, réseau qui rejoue) : succès
+        if (isApiError(e) && e.status === 409) {
+          const mine = await ridesApi.active().catch(() => null);
+          if (mine && mine.id === offer.ride_id) return mine;
+        }
+        throw e;
+      }
     },
     onSuccess: (r) => {
       setOffer(null);

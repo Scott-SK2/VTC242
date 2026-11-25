@@ -28,6 +28,9 @@ function markerElement(m: MapMarker): HTMLElement {
   el.setAttribute('aria-label', m.label ?? m.kind);
   if (m.onClick) el.tabIndex = 0;
   el.style.cursor = m.onClick ? 'pointer' : 'default';
+  // Repère non cliquable : l'appui doit atteindre la carte (ex. déplacer la position simulée
+  // sur le point de prise en charge), sinon il est absorbé par le repère.
+  if (!m.onClick) el.style.pointerEvents = 'none';
   const color = COLORS[m.kind];
   if (m.kind === 'driver' || m.kind === 'available' || m.kind === 'busy' || m.kind === 'offline') {
     el.innerHTML = `<svg width="34" height="34" viewBox="0 0 34 34" style="transform:rotate(${m.heading ?? 0}deg);filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"><path d="M17 3 L27 29 L17 23 L7 29 Z" fill="${color}" stroke="white" stroke-width="2"/></svg>`;

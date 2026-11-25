@@ -9,6 +9,7 @@ import { useUiStore } from '@/shared/store/ui';
 const MOVING_INTERVAL = 4000; // 3–5 s en mouvement
 const STILL_INTERVAL = 10000; // 10 s à l'arrêt
 const STALE_AFTER = 30000; // bandeau si aucune position depuis 30 s
+const HEARTBEAT_MAX_AGE = 120000; // dernière position renvoyée à l'arrêt pendant 2 min au plus
 
 /**
  * Envoi de position chauffeur (F-32, F-41) : watchPosition, trame `driver.location` en WebSocket,
@@ -96,9 +97,20 @@ export function useLocationSender(enabled: boolean, rideId: string | null) {
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
     );
     const staleTimer = setInterval(() => setStale(Date.now() - lastFixAtRef.current > STALE_AFTER), 5000);
+    // Téléphone immobile : le GPS peut ne plus rien signaler pendant longtemps. Sans envoi, le
+    // serveur retire le chauffeur de la carte des disponibles après 30 s (aucune offre, aucun
+    // chauffeur visible côté passager). On renvoie donc la dernière position toutes les 10 s,
+    // tant qu'elle date de moins de 2 min (au-delà, le GPS est vraiment perdu).
+    const heartbeat = setInterval(() => {
+      const last = lastSentRef.current;
+      if (!last || Date.now() - last.at < STILL_INTERVAL) return;
+      if (Date.now() - lastFixAtRef.current > HEARTBEAT_MAX_AGE) return;
+      send({ ...last.fix, recorded_at: new Date().toISOString() });
+    }, STILL_INTERVAL);
     return () => {
       navigator.geolocation.clearWatch(id);
       clearInterval(staleTimer);
+      clearInterval(heartbeat);
       lastSentRef.current = null;
     };
   }, [enabled, simEnabled]);
