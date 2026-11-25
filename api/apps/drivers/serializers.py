@@ -28,6 +28,8 @@ class VehicleSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "is_verified")
 
     def validate(self, attrs):
+        if self.partial:
+            return attrs  # contrôle complet dans services.update_vehicle
         if attrs.get("category") == "taxi" and not attrs.get("taxi_number"):
             raise serializers.ValidationError(
                 {"taxi_number": "Numéro de taxi obligatoire pour un taxi conventionné."}

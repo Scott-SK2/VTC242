@@ -73,10 +73,16 @@ class VehicleDetailView(APIView):
     def patch(self, request, vehicle_id):
         driver = _driver(request)
         vehicle = get_object_or_404(driver.vehicles, pk=vehicle_id)
-        ser = VehicleActivateSerializer(data=request.data)
+        if "is_active" in request.data:
+            ser = VehicleActivateSerializer(data=request.data)
+            ser.is_valid(raise_exception=True)
+            if ser.validated_data["is_active"]:
+                services.activate_vehicle(driver, vehicle)
+            return Response(VehicleSerializer(vehicle).data)
+        # modification des caractéristiques (catégorie, plaque…) : à revérifier
+        ser = VehicleSerializer(vehicle, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
-        if ser.validated_data["is_active"]:
-            services.activate_vehicle(driver, vehicle)
+        vehicle = services.update_vehicle(driver, vehicle, ser.validated_data)
         return Response(VehicleSerializer(vehicle).data)
 
 

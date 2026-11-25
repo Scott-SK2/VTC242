@@ -50,6 +50,7 @@ export default function OnboardingPage() {
   const [picked, setPicked] = useState<Partial<Record<DocumentType, File>>>({});
   const today = new Date().toISOString().slice(0, 10);
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Vehicle | null>(null);
   const hasTaxi = (vehicles.data ?? []).some((v) => v.category === 'taxi');
 
   const latestByType = new Map<DocumentType, DriverDocument>();
@@ -220,14 +221,27 @@ export default function OnboardingPage() {
               </div>
               <div className="flex gap-1 mt-1">
                 {v.is_active && <Badge tone="green">{t('driver.onboarding.active')}</Badge>}
-                {v.is_verified && <Badge tone="blue">{t('driver.onboarding.verified')}</Badge>}
+                {v.is_verified ? (
+                  <Badge tone="blue">{t('driver.onboarding.verified')}</Badge>
+                ) : (
+                  <Badge tone="yellow">{t('driver.onboarding.toVerify')}</Badge>
+                )}
               </div>
             </div>
-            {!v.is_active && (
-              <Button variant="secondary" loading={activate.isPending} onClick={() => activate.mutate(v.id)}>
-                {t('driver.onboarding.activate')}
+            <div className="flex flex-col gap-2 shrink-0">
+              <Button variant="secondary" onClick={() => setEditing(v)}>
+                {t('common.edit')}
               </Button>
-            )}
+              {!v.is_active && (
+                <Button
+                  variant="secondary"
+                  loading={activate.isPending}
+                  onClick={() => activate.mutate(v.id)}
+                >
+                  {t('driver.onboarding.activate')}
+                </Button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -239,25 +253,38 @@ export default function OnboardingPage() {
       </Button>
 
       <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} />
+      {editing && <AddVehicleModal open vehicle={editing} onClose={() => setEditing(null)} />}
     </MobilePage>
   );
 }
 
-function AddVehicleModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** Ajout d'un véhicule, ou modification (catégorie, plaque…) : un véhicule modifié repasse
+ *  « à vérifier » par l'équipe VTC 242 avant de pouvoir rouler à nouveau. */
+function AddVehicleModal({
+  open,
+  onClose,
+  vehicle,
+}: {
+  open: boolean;
+  onClose: () => void;
+  vehicle?: Vehicle;
+}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    brand: '',
-    model: '',
-    color: '',
-    license_plate: '',
-    taxi_number: '',
-    category: 'standard' as VehicleCategory,
-    seats: 4,
+    brand: vehicle?.brand ?? '',
+    model: vehicle?.model ?? '',
+    color: vehicle?.color ?? '',
+    license_plate: vehicle?.license_plate ?? '',
+    taxi_number: vehicle?.taxi_number ?? '',
+    category: (vehicle?.category ?? 'standard') as VehicleCategory,
+    seats: vehicle?.seats ?? 4,
   });
   const create = useMutation({
     mutationFn: () =>
-      driversApi.addVehicle({
+      (vehicle
+        ? (body: Parameters<typeof driversApi.addVehicle>[0]) => driversApi.updateVehicle(vehicle.id, body)
+        : driversApi.addVehicle)({
         brand: form.brand.trim(),
         model: form.model.trim(),
         color: form.color.trim(),
@@ -268,6 +295,8 @@ function AddVehicleModal({ open, onClose }: { open: boolean; onClose: () => void
       } as Omit<Vehicle, 'id' | 'is_verified' | 'is_active'>),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.vehicles });
+      void qc.invalidateQueries({ queryKey: qk.driverMe });
+      if (vehicle) toast(t('driver.onboarding.vehicleUpdated'), 'success');
       onClose();
     },
   });
@@ -278,8 +307,13 @@ function AddVehicleModal({ open, onClose }: { open: boolean; onClose: () => void
     create.mutate();
   }
   return (
-    <Modal open={open} onClose={onClose} title={t('driver.onboarding.addVehicle')}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={vehicle ? t('driver.onboarding.editVehicle') : t('driver.onboarding.addVehicle')}
+    >
       <form onSubmit={submit} noValidate>
+        {vehicle && <p className="text-sm text-gray-600 mb-3">{t('driver.onboarding.editVehicleHint')}</p>}
         <TextField label={t('driver.onboarding.brand')} value={form.brand} onChange={set('brand')} required />
         <TextField label={t('driver.onboarding.model')} value={form.model} onChange={set('model')} required />
         <TextField label={t('driver.onboarding.color')} value={form.color} onChange={set('color')} required />
@@ -318,9 +352,14 @@ function AddVehicleModal({ open, onClose }: { open: boolean; onClose: () => void
           block
           loading={create.isPending}
           className="mt-2"
-          disabled={!form.brand || !form.model || !form.license_plate}
+          disabled={
+            !form.brand ||
+            !form.model ||
+            !form.license_plate ||
+            (form.category === 'taxi' && !form.taxi_number.trim())
+          }
         >
-          {t('common.add')}
+          {vehicle ? t('common.save') : t('common.add')}
         </Button>
       </form>
     </Modal>

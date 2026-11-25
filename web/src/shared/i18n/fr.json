@@ -218,7 +218,8 @@
       "greeting": "Bonjour {{name}}",
       "greetingAnon": "Bonjour",
       "shortcutRentals": "Louer un véhicule",
-      "shortcutCarpool": "Covoiturage"
+      "shortcutCarpool": "Covoiturage",
+      "pointOnMap": "Point choisi sur la carte"
     },
     "search": {
       "placeholder": "Adresse, quartier, lieu…",
@@ -453,7 +454,11 @@
       "change": "Changer",
       "send": "Envoyer",
       "sent": "Pièce envoyée, elle va être vérifiée.",
-      "expiryNeeded": "Indiquez la date d'expiration pour pouvoir envoyer."
+      "expiryNeeded": "Indiquez la date d'expiration pour pouvoir envoyer.",
+      "toVerify": "À vérifier",
+      "editVehicle": "Modifier le véhicule",
+      "editVehicleHint": "Après modification (catégorie, plaque…), le véhicule repasse en vérification par l'équipe VTC 242. S'il est votre véhicule actif, vous ne pourrez pas passer en ligne avant sa validation. Pour un taxi, ajoutez aussi votre carte de taxi.",
+      "vehicleUpdated": "Véhicule modifié : il va être vérifié."
     },
     "wallet": {
       "title": "Mes gains",
@@ -602,7 +607,8 @@
       "rating": "Note",
       "consecutiveDeclines": "Refus consécutifs",
       "searchPlaceholder": "Nom, téléphone, plaque…",
-      "noSelection": "Sélectionnez un chauffeur dans la liste."
+      "noSelection": "Sélectionnez un chauffeur dans la liste.",
+      "verifyVehicle": "Valider le véhicule"
     },
     "passengers": {
       "title": "Passagers",

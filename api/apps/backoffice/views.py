@@ -890,3 +890,19 @@ class CarpoolTripCancelView(StaffView):
         audit(request, "carpool_trip.cancel", trip, {"reason": reason})
         trip = carpool_services.trips_queryset().get(pk=trip.pk)
         return Response(CarpoolTripSerializer(trip).data)
+
+
+class VehicleVerifyView(StaffView):
+    """Revalide un véhicule modifié par son chauffeur (catégorie, plaque…), journalisé."""
+
+    roles = ADMIN_SUPPORT
+
+    def post(self, request, vehicle_id):
+        vehicle = get_object_or_404(Vehicle.objects.select_related("driver__user"), pk=vehicle_id)
+        vehicle.is_verified = True
+        vehicle.save(update_fields=["is_verified", "updated_at"])
+        audit(request, "vehicle.verify", vehicle, {"category": vehicle.category})
+        driver = Driver.objects.select_related("user", "active_vehicle", "zone").get(
+            pk=vehicle.driver_id
+        )
+        return Response(AdminDriverSerializer(driver).data)

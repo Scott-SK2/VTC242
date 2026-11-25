@@ -97,6 +97,7 @@ export const geoApi = {
       { signal },
     ),
   resolveZone: (lat: number, lng: number) => api.get<Zone>('/geo/zones/resolve', { lat, lng }),
+  reverse: (lat: number, lng: number) => api.get<{ label: string | null }>('/geo/reverse', { lat, lng }),
 };
 
 export const ridesApi = {
@@ -159,6 +160,8 @@ export const driversApi = {
   addVehicle: (body: Omit<Vehicle, 'id' | 'is_verified' | 'is_active'>) =>
     api.post<Vehicle>('/drivers/me/vehicles', body),
   activateVehicle: (id: string) => api.patch<Vehicle>(`/drivers/me/vehicles/${id}`, { is_active: true }),
+  updateVehicle: (id: string, body: Partial<Omit<Vehicle, 'id' | 'is_verified' | 'is_active'>>) =>
+    api.patch<Vehicle>(`/drivers/me/vehicles/${id}`, body),
   documents: () => api.get<DriverDocument[]>('/drivers/me/documents'),
   addDocument: (body: { type: string; file_url: string; expires_at?: string }) =>
     api.post<DriverDocument>('/drivers/me/documents', body),
@@ -189,6 +192,7 @@ export const adminApi = {
   suspendDriver: (id: string, reason: string) =>
     api.post<AdminDriver>(`/admin/drivers/${id}/suspend`, { reason }),
   reinstateDriver: (id: string) => api.post<AdminDriver>(`/admin/drivers/${id}/reinstate`),
+  verifyVehicle: (id: string) => api.post<AdminDriver>(`/admin/vehicles/${id}/verify`),
   reviewDocument: (id: string, status: 'approved' | 'rejected', note?: string) =>
     api.post<DriverDocument>(`/admin/documents/${id}/review`, { status, note: note ?? '' }),
   passengers: (params: { q?: string; cursor?: string }) =>

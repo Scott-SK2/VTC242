@@ -27,6 +27,17 @@ class AutocompleteView(APIView):
         return Response({"results": autocomplete.search(q, lat, lng)})
 
 
+class ReverseView(APIView):
+    """GET /geo/reverse?lat=&lng= → { label } (null si aucun nom trouvé)."""
+
+    def get(self, request):
+        lat = _float(request.query_params.get("lat"), "lat")
+        lng = _float(request.query_params.get("lng"), "lng")
+        if lat is None or lng is None:
+            raise ApiError("lat et lng requis.", code="validation_error")
+        return Response({"label": autocomplete.reverse(lat, lng)})
+
+
 class ZoneResolveView(APIView):
     permission_classes = (AllowAny,)
 
