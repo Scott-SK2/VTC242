@@ -55,7 +55,7 @@ Objectifs : RTO (durée maximale d'interruption) ≤ 15 min · RPO (perte de don
 Procédure (objectif 15 min) :
 1. **0–2 min** : accuser l'alerte, ouvrir le fil de crise, lire `/health/`.
 2. **2–5 min** : qualifier — déploiement (rollback), base (restauration, voir ci-dessous), Redis (vidage / plan), fournisseur (Render / Vercel status).
-3. **5–10 min** : appliquer le correctif ; si l'infrastructure Render est indisponible, redéployer l'API depuis `render.yaml` dans une autre région et pointer `VITE_API_URL` / `VITE_WS_URL` sur Vercel.
+3. **5–10 min** : appliquer le correctif ; si l'infrastructure Render est indisponible, redéployer l'API depuis `render.yaml` dans une autre région et pointer `VITE_API_URL` sur Vercel (le WebSocket suit).
 4. **10–15 min** : vérifier (OTP, commande de test, position GPS, code de départ), lever l'alerte, informer.
 5. **Sous 48 h** : post-mortem écrit (cause, chronologie, actions).
 

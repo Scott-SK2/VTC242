@@ -18,7 +18,7 @@ Le code est prêt ; il manque un compte ou une clé fournis par le client.
 - [ ] **Sentry** : `SENTRY_DSN` (backend) et `VITE_SENTRY_DSN` (frontend).
 - [ ] **Nom de domaine définitif** (ex. `vtc242.cg`) sur Render et Vercel ; mettre à jour
       `ALLOWED_HOSTS`, `API_BASE_URL`, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`,
-      `VITE_API_URL`, `VITE_WS_URL` ; passer `CORS_ALLOW_ALL_ORIGINS=0`.
+      `VITE_API_URL` ; passer `CORS_ALLOW_ALL_ORIGINS=0`.
 - [ ] **Hébergement de production** : profil `api/render.production.yaml` (plans payants,
       worker et beat séparés, base sauvegardée), `RUN_WORKER_IN_WEB=0`, `SEED_DEMO=0`.
 - [ ] **Clés de notification (VAPID) de production** : en générer de nouvelles.

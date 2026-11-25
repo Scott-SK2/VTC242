@@ -74,3 +74,13 @@ describe('WsClient', () => {
     vi.useRealTimers();
   });
 });
+
+describe('adresse du WebSocket', () => {
+  it("se déduit de l'adresse de l'API", async () => {
+    const { wsBaseFrom } = await import('@/shared/ws/client');
+    expect(wsBaseFrom('https://vtc242-api-i8ip.onrender.com')).toBe('wss://vtc242-api-i8ip.onrender.com/ws/');
+    expect(wsBaseFrom('https://api.vtc242.cg/')).toBe('wss://api.vtc242.cg/ws/');
+    expect(wsBaseFrom('http://localhost:8000')).toBe('ws://localhost:8000/ws/');
+    expect(wsBaseFrom(undefined)).toBe('ws://localhost:8000/ws/');
+  });
+});
