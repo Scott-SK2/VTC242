@@ -21,7 +21,9 @@ export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
   ];
   return (
     <div className="h-full flex flex-col max-w-screen-md mx-auto w-full">
-      <main className="flex-1 min-h-0 relative overflow-hidden">
+      {/* overflow: clip (et non hidden) : la zone ne peut jamais défiler, même quand le navigateur
+          remet sous les yeux un champ caché (retour du sélecteur de fichiers sur Android) */}
+      <main className="flex-1 min-h-0 relative overflow-hidden [overflow:clip]">
         <Outlet />
       </main>
       <nav

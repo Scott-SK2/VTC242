@@ -20,7 +20,7 @@ export function MobilePage({
   const nav = useNavigate();
   const { t } = useTranslation();
   return (
-    <div className="h-full overflow-y-auto bg-gray-50">
+    <div className="relative h-full overflow-y-auto bg-gray-50">
       <header className="sticky top-0 z-10 bg-gray-50/90 backdrop-blur px-4 pt-4 pb-3 flex items-center gap-3">
         {back && (
           <button
