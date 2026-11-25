@@ -47,6 +47,20 @@ class PayoutRequestSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source="driver.user.public_name", read_only=True)
     driver_phone = serializers.CharField(source="driver.user.phone_number", read_only=True)
     transaction = TransactionSerializer(read_only=True)
+    can_approve = serializers.SerializerMethodField()
+    can_reject = serializers.SerializerMethodField()
+    is_stuck = serializers.SerializerMethodField()
+
+    def get_can_approve(self, obj) -> bool:
+        return obj.status == "awaiting_approval"
+
+    def get_is_stuck(self, obj) -> bool:
+        from .services import payout_is_stuck
+
+        return payout_is_stuck(obj)
+
+    def get_can_reject(self, obj) -> bool:
+        return obj.status == "awaiting_approval" or self.get_is_stuck(obj)
 
     class Meta:
         model = PayoutRequest
@@ -64,4 +78,7 @@ class PayoutRequestSerializer(serializers.ModelSerializer):
             "processed_by_id",
             "note",
             "created_at",
+            "can_approve",
+            "can_reject",
+            "is_stuck",
         )

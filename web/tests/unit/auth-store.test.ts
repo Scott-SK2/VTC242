@@ -51,3 +51,24 @@ describe('auth store', () => {
     expect(isAdminRole('driver')).toBe(false);
   });
 });
+
+describe('validation TOTP portée par le jeton', () => {
+  const jwt = (claims: object) => `h.${btoa(JSON.stringify(claims))}.s`;
+  const now = 1_800_000_000_000;
+
+  it('reste valable 8 h après la validation, pas au-delà', async () => {
+    const { tokenHasTotp } = await import('@/shared/store/auth');
+    expect(tokenHasTotp(jwt({ totp: true, totp_at: now / 1000 - 3600 }), now)).toBe(true);
+    expect(tokenHasTotp(jwt({ totp: true, totp_at: now / 1000 - 9 * 3600 }), now)).toBe(false);
+    expect(tokenHasTotp(jwt({ totp: false }), now)).toBe(false);
+    expect(tokenHasTotp('pas-un-jeton', now)).toBe(false);
+    expect(tokenHasTotp(null, now)).toBe(false);
+  });
+
+  it('suit le jeton de renouvellement stocké', () => {
+    useAuthStore.getState().setTokens('a', jwt({ totp: true, totp_at: Date.now() / 1000 }));
+    expect(useAuthStore.getState().totpVerified).toBe(true);
+    useAuthStore.getState().setTokens('a', jwt({ totp: false }));
+    expect(useAuthStore.getState().totpVerified).toBe(false);
+  });
+});

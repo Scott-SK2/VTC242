@@ -4,13 +4,17 @@ BUSINESS_WATCH_WINDOW_MIN = 30  # fenêtre d'observation des annulations
 BUSINESS_WATCH_MIN_RIDES = 5  # nombre minimal de commandes avant de qualifier un taux
 BUSINESS_WATCH_CANCEL_RATE = 0.25  # > 25 % d'annulations → alerte
 BUSINESS_WATCH_REPEAT_MIN = 60  # pas de doublon d'alerte pendant 60 min
+STALE_APPROACH_MIN = 90  # acceptée / arrivée depuis plus de 1 h 30 sans démarrer
+STALE_RIDE_HOURS = 5  # en cours depuis plus de 5 h
 
 
 @shared_task(name="backoffice.business_watch")
 def business_watch() -> int:
     """Alertes métier (supervision, inspirée des règles Prometheus) :
     - zone sans aucun chauffeur en ligne alors que des passagers commandent ;
-    - part des commandes annulées / sans chauffeur > 25 % sur 30 min.
+    - part des commandes annulées / sans chauffeur > 25 % sur 30 min ;
+    - course restée active anormalement longtemps (téléphone perdu, chauffeur parti) :
+      le support peut la clôturer depuis sa fiche, les fonds du passager sont libérés.
     Les alertes apparaissent dans le back-office (F-52) et sont diffusées aux admins."""
     from datetime import timedelta
 
@@ -76,6 +80,29 @@ def business_watch() -> int:
                 },
             )
             raised += 1
+
+    stale = list(
+        Ride.objects.filter(
+            status__in=(RideStatus.ACCEPTED, RideStatus.ARRIVED),
+            accepted_at__lt=now - timedelta(minutes=STALE_APPROACH_MIN),
+        )
+    ) + list(
+        Ride.objects.filter(
+            status=RideStatus.IN_PROGRESS,
+            started_at__lt=now - timedelta(hours=STALE_RIDE_HOURS),
+        )
+    )
+    for ride in stale:
+        # une seule alerte par course tant qu'elle n'est pas débloquée
+        if Alert.objects.filter(type=AlertType.STALE_RIDE, ride=ride).exists():
+            continue
+        since = ride.started_at if ride.status == RideStatus.IN_PROGRESS else ride.accepted_at
+        raise_alert(
+            AlertType.STALE_RIDE,
+            ride,
+            {"status": ride.status, "minutes": int((now - since).total_seconds() // 60)},
+        )
+        raised += 1
     return raised
 
 

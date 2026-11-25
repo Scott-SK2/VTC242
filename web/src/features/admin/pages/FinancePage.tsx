@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { adminApi } from '@/shared/api/endpoints';
 import type { PayoutRequest, ReconciliationResult, Transaction } from '@/shared/api/types';
-import { AdminPage, DataTable, KpiCard, Pager, useCursorQuery, type Column } from '../components';
+import { AdminPage, DataTable, KpiCard, Pager, ReasonModal, useCursorQuery, type Column } from '../components';
 import { Badge, Button, ErrorBox, Money, errorMessage, type BadgeTone } from '@/shared/ui';
 import { formatMoney } from '@/shared/utils/money';
 import { formatDateTime } from '@/shared/utils/date';
@@ -16,6 +16,8 @@ const tone: Record<string, BadgeTone> = {
   expired: 'neutral',
   approved: 'green',
   rejected: 'red',
+  awaiting_approval: 'yellow',
+  processing: 'blue',
 };
 type Tx = Transaction & { user?: { first_name: string; last_name: string; role: string } };
 
@@ -34,13 +36,18 @@ export default function FinancePage() {
   );
   const payouts = useQuery({
     queryKey: ['admin', 'finance', 'payouts'],
-    queryFn: () => adminApi.payouts('pending'),
+    // à valider (au-dessus du seuil) + en cours chez l'opérateur (un retrait resté sans
+    // réponse peut être rejeté : le serveur vérifie d'abord auprès de l'opérateur)
+    queryFn: () => adminApi.payouts('awaiting_approval,pending,processing'),
+    refetchInterval: 60_000,
   });
+  const [toReject, setToReject] = useState<PayoutRequest | null>(null);
   const decide = useMutation({
-    mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
-      approve ? adminApi.approvePayout(id) : adminApi.rejectPayout(id),
+    mutationFn: ({ id, approve, reason }: { id: string; approve: boolean; reason?: string }) =>
+      approve ? adminApi.approvePayout(id) : adminApi.rejectPayout(id, reason),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['admin', 'finance'] });
+      setToReject(null);
       toast(t('common.ok'), 'success');
     },
   });
@@ -102,8 +109,12 @@ export default function FinancePage() {
     {
       key: 'driver',
       header: t('roles.driver'),
-      render: (p) =>
-        p.driver ? `${p.driver.first_name} ${p.driver.last_name}` : (p.driver_id?.slice(0, 8) ?? '—'),
+      render: (p) => (
+        <span>
+          {p.driver_name || p.driver_id?.slice(0, 8) || '—'}
+          {p.driver_phone && <span className="block text-xs text-gray-500">{p.driver_phone}</span>}
+        </span>
+      ),
     },
     {
       key: 'amount',
@@ -119,28 +130,33 @@ export default function FinancePage() {
     {
       key: 'status',
       header: t('common.status'),
-      render: (p) => <Badge tone={tone[p.status] ?? 'neutral'}>{t(`transactions.${p.status}`)}</Badge>,
+      render: (p) => (
+        <span className="flex flex-wrap gap-1">
+          <Badge tone={tone[p.status] ?? 'neutral'}>{t(`transactions.${p.status}`)}</Badge>
+          {p.is_stuck && <Badge tone="red">{t('admin.finance.stuckPayout')}</Badge>}
+        </span>
+      ),
     },
     {
       key: 'actions',
       header: t('common.actions'),
       render: (p) =>
-        p.status === 'pending' && (
+        (p.can_approve || p.can_reject) && (
           <div className="flex gap-2">
-            <Button
-              className="min-h-[36px] px-3 text-xs"
-              loading={decide.isPending && decide.variables?.id === p.id}
-              onClick={() => decide.mutate({ id: p.id, approve: true })}
-            >
-              {t('admin.finance.approvePayout')}
-            </Button>
-            <Button
-              variant="danger"
-              className="min-h-[36px] px-3 text-xs"
-              onClick={() => decide.mutate({ id: p.id, approve: false })}
-            >
-              {t('admin.finance.rejectPayout')}
-            </Button>
+            {p.can_approve && (
+              <Button
+                className="min-h-[36px] px-3 text-xs"
+                loading={decide.isPending && decide.variables?.id === p.id}
+                onClick={() => decide.mutate({ id: p.id, approve: true })}
+              >
+                {t('admin.finance.approvePayout')}
+              </Button>
+            )}
+            {p.can_reject && (
+              <Button variant="danger" className="min-h-[36px] px-3 text-xs" onClick={() => setToReject(p)}>
+                {t('admin.finance.rejectPayout')}
+              </Button>
+            )}
           </div>
         ),
     },
@@ -179,7 +195,20 @@ export default function FinancePage() {
           error={payouts.error}
           onRetry={() => void payouts.refetch()}
         />
-        <ErrorBox error={decide.error} />
+        {!toReject && <ErrorBox error={decide.error} />}
+        <ReasonModal
+          open={!!toReject}
+          title={t('admin.finance.rejectTitle')}
+          hint={toReject?.is_stuck ? t('admin.finance.rejectStuckHint') : t('admin.finance.rejectHint')}
+          danger
+          loading={decide.isPending}
+          error={decide.error}
+          onClose={() => {
+            setToReject(null);
+            decide.reset();
+          }}
+          onConfirm={(reason) => toReject && decide.mutate({ id: toReject.id, approve: false, reason })}
+        />
       </section>
 
       <section className="mb-6">

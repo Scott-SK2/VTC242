@@ -95,7 +95,10 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       const r = await adminApi.totpVerify(totp);
-      if (r?.access) auth.setAccessToken(r.access);
+      // les deux jetons : le refresh porte aussi la validation TOTP (sinon elle était perdue
+      // au premier renouvellement, 15 min plus tard, et le code était redemandé)
+      if (r?.access && r.refresh) auth.setTokens(r.access, r.refresh);
+      else if (r?.access) auth.setAccessToken(r.access);
       auth.setTotpVerified(true);
       if (auth.user && !auth.user.totp_enabled) auth.setUser({ ...auth.user, totp_enabled: true });
       nav('/admin', { replace: true });

@@ -59,6 +59,11 @@ export default function AlertsPage() {
               {t('admin.alerts.chat')}
             </Button>
           )}
+          {a.type === 'payout_review' && (
+            <Link to="/admin/finance" className="btn-secondary min-h-[36px] px-3 text-xs">
+              {t('nav.finance')}
+            </Link>
+          )}
           {a.status === 'open' ? (
             <Button
               className="min-h-[36px] px-3 text-xs"

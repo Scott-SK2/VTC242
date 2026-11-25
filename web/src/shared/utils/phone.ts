@@ -1,10 +1,10 @@
 /** Normalise un numéro congolais : "06 123 45 67" → "+242061234567". */
 export function normalizePhone(input: string): string {
-  const digits = input.replace(/[^\d+]/g, '');
-  if (digits.startsWith('+242')) return `+242${digits.slice(4).replace(/\D/g, '')}`;
-  if (digits.startsWith('242')) return `+${digits}`;
-  if (digits.startsWith('00242')) return `+${digits.slice(2)}`;
-  return `+242${digits.replace(/^0+/, '').replace(/\D/g, '')}`;
+  let digits = input.replace(/\D/g, '');
+  if (digits.startsWith('00242')) digits = digits.slice(5);
+  else if (digits.startsWith('242') && digits.length === 12) digits = digits.slice(3);
+  // Au Congo, le 0 initial fait partie du numéro (+242 06 123 45 67) : on le garde.
+  return `+242${digits}`;
 }
 
 export function isValidCongoPhone(input: string): boolean {

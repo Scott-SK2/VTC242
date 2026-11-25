@@ -37,14 +37,36 @@ export interface AuthState {
   logout: () => void;
 }
 
+const ADMIN_SESSION_S = 8 * 3600;
+
+/** Le jeton porte-t-il une validation TOTP encore valable (8 h) ? Simple confort d'affichage :
+ * le serveur revérifie à chaque requête (403 totp_required sinon). Évite de redemander le
+ * code à chaque rechargement de la page. */
+export function tokenHasTotp(token: string | null, now = Date.now()): boolean {
+  if (!token) return false;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return false;
+    const claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      totp?: boolean;
+      totp_at?: number;
+    };
+    return !!claims.totp && !!claims.totp_at && now / 1000 - claims.totp_at < ADMIN_SESSION_S;
+  } catch {
+    return false;
+  }
+}
+
+const storedRefresh = readStorage<string>(REFRESH_KEY);
+
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
-  refreshToken: readStorage<string>(REFRESH_KEY),
+  refreshToken: storedRefresh,
   user: readStorage<User>(USER_KEY),
-  totpVerified: false,
+  totpVerified: tokenHasTotp(storedRefresh),
   setTokens: (access, refresh) => {
     writeStorage(REFRESH_KEY, refresh);
-    set({ accessToken: access, refreshToken: refresh });
+    set({ accessToken: access, refreshToken: refresh, totpVerified: tokenHasTotp(refresh) });
   },
   setAccessToken: (access) => set({ accessToken: access }),
   setUser: (user) => {

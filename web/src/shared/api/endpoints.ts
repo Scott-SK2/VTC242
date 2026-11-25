@@ -263,7 +263,7 @@ export const adminApi = {
   createUser: (body: { phone_number: string; first_name: string; last_name: string; role: string }) =>
     api.post<User>('/admin/users', body),
   totpSetup: () => api.post<TotpSetup>('/admin/totp/setup'),
-  totpVerify: (code: string) => api.post<{ access: string }>('/admin/totp/verify', { code }),
+  totpVerify: (code: string) => api.post<{ access: string; refresh?: string }>('/admin/totp/verify', { code }),
 };
 
 /** Certaines listes admin peuvent être paginées ou non : normalise en tableau. */
@@ -337,6 +337,8 @@ export const adminServicesApi = {
     api.post<RentalListing>(`/admin/rentals/listings/${id}/${action}`, { reason }),
   rentalBookings: (params: { status?: string; q?: string; cursor?: string }) =>
     api.get<Page<RentalBooking>>('/admin/rentals/bookings', params),
+  cancelBooking: (id: string, reason: string) =>
+    api.post<RentalBooking>(`/admin/rentals/bookings/${id}/cancel`, { reason }),
   carpoolTrips: (params: { status?: string; q?: string; cursor?: string }) =>
     api.get<Page<CarpoolTrip>>('/admin/carpool/trips', params),
   cancelTrip: (id: string, reason: string) =>

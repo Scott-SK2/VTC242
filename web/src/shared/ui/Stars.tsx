@@ -10,6 +10,8 @@ export function Stars({
   size?: number;
 }) {
   const { t } = useTranslation();
+  // étoiles cliquables : zone tactile d'au moins 44 px, quelle que soit la taille du dessin
+  const box = onChange ? Math.max(size, 44) : size;
   return (
     <div
       className="flex gap-1"
@@ -25,7 +27,7 @@ export function Stars({
           aria-label={t('rating.stars', { n })}
           disabled={!onChange}
           onClick={() => onChange?.(n)}
-          style={{ width: size, height: size, fontSize: size * 0.8 }}
+          style={{ width: box, height: box, fontSize: size * 0.8 }}
           className={`flex items-center justify-center ${n <= value ? 'text-code' : 'text-gray-300'} disabled:opacity-100`}
         >
           ★

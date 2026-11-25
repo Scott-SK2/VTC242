@@ -583,7 +583,9 @@
         "price_capped": "Prix plafonné",
         "balance_mismatch": "Écart de solde",
         "no_drivers_online": "Aucun chauffeur en ligne",
-        "high_cancellation": "Taux d'annulation élevé"
+        "high_cancellation": "Taux d'annulation élevé",
+        "payout_review": "Retrait à vérifier",
+        "stale_ride": "Course bloquée"
       }
     },
     "rides": {
@@ -729,10 +731,10 @@
       "deposits_today": "Recharges du jour",
       "commission_today": "Commissions du jour",
       "transactions": "Transactions",
-      "payouts": "Retraits à traiter",
+      "payouts": "Retraits à valider ou en cours",
       "approvePayout": "Approuver",
       "rejectPayout": "Rejeter",
-      "noPayouts": "Aucun retrait en attente.",
+      "noPayouts": "Aucun retrait à traiter.",
       "reconciliation": "Réconciliation opérateurs",
       "reconciliationHint": "Importez le relevé CSV (operator,external_reference,amount,status).",
       "import": "Importer",
@@ -744,7 +746,11 @@
       "exportRides": "Exporter les courses",
       "type": "Type",
       "operator": "Opérateur",
-      "user": "Utilisateur"
+      "user": "Utilisateur",
+      "stuckPayout": "Sans réponse",
+      "rejectTitle": "Rejeter le retrait",
+      "rejectHint": "Le montant sera recrédité sur le wallet du chauffeur.",
+      "rejectStuckHint": "L'opérateur n'a pas répondu depuis plus de 15 min. Le statut est revérifié auprès de lui avant de recréditer : si le retrait a été versé, il sera marqué comme versé."
     },
     "audit": {
       "title": "Journal d'audit",
@@ -774,7 +780,10 @@
       "pendingOnly": "En attente",
       "all": "Toutes",
       "owner": "Loueur",
-      "prices": "Tarifs"
+      "prices": "Tarifs",
+      "cancelTitle": "Annuler la réservation",
+      "cancelHint": "Le prix et la caution réservés sont libérés pour le client, sans frais. Le client et le loueur sont prévenus.",
+      "mode": "Formule"
     },
     "carpool": {
       "title": "Covoiturage",
@@ -903,7 +912,8 @@
       "completed": "Terminée",
       "cancelled_by_renter": "Annulée par le client",
       "cancelled_by_owner": "Annulée par le loueur",
-      "expired": "Expirée"
+      "expired": "Expirée",
+      "cancelled_by_support": "Annulée par le support"
     }
   },
   "carpool": {

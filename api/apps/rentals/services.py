@@ -387,6 +387,34 @@ def renter_cancel(booking_id, renter, reason: str = "") -> RentalBooking:
     return booking
 
 
+@transaction.atomic
+def support_cancel(booking_id, reason: str = "") -> RentalBooking:
+    """Annulation par le support (litige, véhicule indisponible, loueur injoignable…) : à tout
+    moment avant la clôture, sans frais, prix et caution libérés pour le client."""
+    booking = _locked_booking(booking_id)
+    if booking.status not in (
+        BookingStatus.REQUESTED,
+        BookingStatus.ACCEPTED,
+        BookingStatus.IN_PROGRESS,
+    ):
+        raise Conflict("Cette réservation ne peut plus être annulée.", code="invalid_transition")
+    _release(booking)
+    booking.status = BookingStatus.CANCELLED_BY_SUPPORT
+    booking.status_reason = reason or "Annulée par le support"
+    booking.cancelled_at = timezone.now()
+    booking.save(update_fields=["status", "status_reason", "cancelled_at", "updated_at"])
+    for to_owner in (False, True):
+        _notify_booking(
+            booking,
+            "Location annulée par le support",
+            "Les fonds réservés ont été libérés, sans frais."
+            if not to_owner
+            else f"La location de {booking.listing.title} a été annulée par le support.",
+            to_owner=to_owner,
+        )
+    return booking
+
+
 def expire_requests() -> int:
     """Demandes restées sans réponse dont la date de début est passée : expirées, fonds libérés."""
     n = 0

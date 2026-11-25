@@ -363,7 +363,9 @@ export type AlertType =
   | 'price_capped'
   | 'balance_mismatch'
   | 'no_drivers_online'
-  | 'high_cancellation';
+  | 'high_cancellation'
+  | 'payout_review'
+  | 'stale_ride';
 
 export interface Alert {
   id: string;
@@ -473,12 +475,19 @@ export interface FinanceSummary {
 
 export interface PayoutRequest {
   id: string;
-  driver: { id: string; first_name: string; last_name: string } | null;
   driver_id?: string;
+  driver_name?: string;
+  driver_phone?: string;
   amount: string;
   operator: MobileOperator;
   phone_number: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed';
+  status: 'pending' | 'awaiting_approval' | 'processing' | 'rejected' | 'completed' | 'failed';
+  /** À valider par la finance (au-dessus du seuil de validation manuelle). */
+  can_approve?: boolean;
+  /** À valider, ou resté sans réponse de l'opérateur depuis plus de 15 min. */
+  can_reject?: boolean;
+  is_stuck?: boolean;
+  note?: string | null;
   created_at: string;
   processed_at: string | null;
 }
@@ -515,6 +524,7 @@ export type RentalBookingStatus =
   | 'completed'
   | 'cancelled_by_renter'
   | 'cancelled_by_owner'
+  | 'cancelled_by_support'
   | 'expired';
 
 export interface PersonSummary {

@@ -279,3 +279,105 @@ def test_staff_totp_expires_after_admin_session(admin_user, monkeypatch):
     c.credentials(HTTP_AUTHORIZATION=f"Bearer {r.data['access']}")
     dash = c.get("/api/v1/admin/dashboard")
     assert dash.status_code == 403 and dash.data["code"] == "totp_required"
+
+
+# --- suites de l'audit : back-office ----------------------------------------------------
+def test_finance_lists_payouts_to_validate_and_rejects_stuck_one(driver, admin_api):
+    from apps.safety.models import Alert
+
+    payments.adjust(driver.user, Decimal("300000"), "seed")
+    big = payments.payout(driver, Decimal("150000"), "mtn", "+242061000001")  # à valider
+    stuck = payments.payout(driver, Decimal("5002"), "airtel", "+242061000001")  # sans réponse
+    rows = admin_api.get(
+        "/api/v1/admin/finance/payouts?status=awaiting_approval,pending,processing"
+    ).data["results"]
+    by_tx = {r["transaction"]["id"]: r for r in rows}
+    assert by_tx[str(big.id)]["can_approve"] and by_tx[str(big.id)]["can_reject"]
+    assert not by_tx[str(stuck.id)]["can_approve"] and not by_tx[str(stuck.id)]["can_reject"]
+    # 16 min sans réponse : alerte enregistrée, rejet possible (statut revérifié, puis recrédit)
+    WalletTransaction.objects.filter(pk=stuck.pk).update(
+        created_at=timezone.now() - timedelta(minutes=16)
+    )
+    payments.poll_pending()
+    payments.poll_pending()  # pas de doublon d'alerte
+    assert Alert.objects.filter(type="payout_review").count() == 1
+    req = PayoutRequest.objects.get(transaction=stuck)
+    row = admin_api.get("/api/v1/admin/finance/payouts?status=pending,processing").data["results"]
+    assert [r["is_stuck"] and r["can_reject"] for r in row] == [True]
+    before = payments.get_wallet(driver.user).balance
+    r = admin_api.post(
+        f"/api/v1/admin/finance/payouts/{req.id}/reject", {"reason": "sans réponse"}, format="json"
+    )
+    assert r.status_code == 200 and r.data["status"] == "rejected" and r.data["note"]
+    assert payments.get_wallet(driver.user).balance == before + Decimal("5002")
+
+
+def test_support_cancels_rental_booking_and_releases_funds(api, passenger, zone, admin_api):
+    from apps.rentals.models import RentalBooking
+
+    from .conftest import make_driver as _make_driver
+
+    owner = _make_driver("+242061000071", zone, category="standard", online=False, first="Paul")
+    listing = client_for(owner.user).post(
+        "/api/v1/rentals/my/listings",
+        {
+            "vehicle_id": str(owner.active_vehicle_id),
+            "title": "Corolla",
+            "price_per_day_with_driver": "4000",
+        },
+        format="json",
+    )
+    assert listing.status_code == 201, listing.data
+    admin_api.post(
+        f"/api/v1/admin/rentals/listings/{listing.data['id']}/approve", {}, format="json"
+    )
+    day = (timezone.localdate() + timedelta(days=3)).isoformat()
+    b = api.post(
+        "/api/v1/rentals/bookings",
+        {
+            "listing_id": listing.data["id"],
+            "mode": "with_driver",
+            "start_date": day,
+            "end_date": day,
+        },
+        format="json",
+    )
+    assert b.status_code == 201, b.data
+    assert payments.get_wallet(passenger).reserved_balance == Decimal("4000")
+    RentalBooking.objects.filter(pk=b.data["id"]).update(status="in_progress")
+    r = admin_api.post(
+        f"/api/v1/admin/rentals/bookings/{b.data['id']}/cancel", {"reason": "panne"}, format="json"
+    )
+    assert r.status_code == 200 and r.data["status"] == "cancelled_by_support"
+    w = payments.get_wallet(passenger)
+    assert w.reserved_balance == 0 and w.balance == Decimal("10000")  # aucun frais
+    again = admin_api.post(
+        f"/api/v1/admin/rentals/bookings/{b.data['id']}/cancel", {"reason": "x"}, format="json"
+    )
+    assert again.status_code == 409
+    # les dates redeviennent réservables
+    assert payments.recompute_balances() == []
+
+
+def test_stale_ride_alert_raised_once(api, passenger, driver, rules):
+    from apps.backoffice.tasks import business_watch
+    from apps.safety.models import Alert
+
+    ride_id = _to_in_progress(api, driver)
+    business_watch()
+    assert not Alert.objects.filter(type="stale_ride").exists()
+    _long_ride(ride_id, minutes=6 * 60)
+    business_watch()
+    business_watch()
+    alerts = Alert.objects.filter(type="stale_ride")
+    assert alerts.count() == 1 and str(alerts[0].ride_id) == ride_id
+
+
+def test_balance_mismatch_alert_is_recorded_once(passenger):
+    from apps.payments.models import Wallet
+    from apps.safety.models import Alert
+
+    Wallet.objects.filter(user=passenger).update(balance=Decimal("999"))
+    payments.recompute_balances()
+    payments.recompute_balances()
+    assert Alert.objects.filter(type="balance_mismatch").count() == 1

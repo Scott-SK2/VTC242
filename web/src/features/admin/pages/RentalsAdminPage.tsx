@@ -20,6 +20,7 @@ export default function RentalsAdminPage() {
   const [pendingOnly, setPendingOnly] = useState(true);
   const [q, setQ] = useState('');
   const [toSuspend, setToSuspend] = useState<RentalListing | null>(null);
+  const [toCancel, setToCancel] = useState<RentalBooking | null>(null);
   const listings = useCursorQuery(
     ['admin', 'rentals', 'listings', pendingOnly, q],
     (cursor) =>
@@ -48,6 +49,15 @@ export default function RentalsAdminPage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['admin', 'rentals'] });
       setToSuspend(null);
+      toast(t('common.ok'), 'success');
+    },
+  });
+  const cancelBooking = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      adminServicesApi.cancelBooking(id, reason),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'rentals'] });
+      setToCancel(null);
       toast(t('common.ok'), 'success');
     },
   });
@@ -120,7 +130,7 @@ export default function RentalsAdminPage() {
       header: t('common.date'),
       render: (b) => `${formatDate(b.start_date)} → ${formatDate(b.end_date)} (${b.days} j)`,
     },
-    { key: 'mode', header: t('rentals.mode.all'), render: (b) => t(`rentals.mode.${b.mode}`) },
+    { key: 'mode', header: t('admin.rentals.mode'), render: (b) => t(`rentals.mode.${b.mode}`) },
     { key: 'renter', header: t('rentals.renter'), render: (b) => b.renter.first_name || '—' },
     { key: 'owner', header: t('rentals.owner'), render: (b) => b.owner.first_name || '—' },
     { key: 'total', header: t('common.amount'), render: (b) => formatMoney(b.total_price) },
@@ -128,6 +138,16 @@ export default function RentalsAdminPage() {
       key: 'status',
       header: t('common.status'),
       render: (b) => <Badge tone={rentalTone(b.status)}>{t(`rentals.status.${b.status}`)}</Badge>,
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      render: (b) =>
+        ['requested', 'accepted', 'in_progress'].includes(b.status) && (
+          <Button variant="danger" className="min-h-[36px] px-3 text-xs" onClick={() => setToCancel(b)}>
+            {t('common.cancel')}
+          </Button>
+        ),
     },
   ];
   return (
@@ -200,6 +220,19 @@ export default function RentalsAdminPage() {
         error={review.error}
         onClose={() => setToSuspend(null)}
         onConfirm={(reason) => toSuspend && review.mutate({ id: toSuspend.id, action: 'suspend', reason })}
+      />
+      <ReasonModal
+        open={!!toCancel}
+        title={t('admin.rentals.cancelTitle')}
+        hint={t('admin.rentals.cancelHint')}
+        danger
+        loading={cancelBooking.isPending}
+        error={cancelBooking.error}
+        onClose={() => {
+          setToCancel(null);
+          cancelBooking.reset();
+        }}
+        onConfirm={(reason) => toCancel && cancelBooking.mutate({ id: toCancel.id, reason })}
       />
     </AdminPage>
   );
