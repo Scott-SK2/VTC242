@@ -1,9 +1,11 @@
+import mimetypes
 import time
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.files.storage import default_storage
 from django.db import connection
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -81,3 +83,16 @@ class MetricsView(APIView):
 
         refresh_business_metrics()
         return HttpResponse(generate_latest(), content_type=CONTENT_TYPE_LATEST)
+
+
+def media_view(request, path: str):
+    """Fichiers téléversés quand aucun stockage R2 n'est configuré (profil de test).
+    Noms aléatoires non devinables ; jamais de liste de répertoire."""
+    if ".." in path or not path.startswith("uploads/") or not default_storage.exists(path):
+        raise Http404()
+    content_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+    resp = FileResponse(default_storage.open(path, "rb"), content_type=content_type)
+    resp["X-Content-Type-Options"] = "nosniff"
+    resp["Cache-Control"] = "private, max-age=3600"
+    resp["Content-Disposition"] = "inline"
+    return resp

@@ -178,3 +178,34 @@ def test_leaving_driver_mode_goes_offline_and_never_self_dispatch(zone, rules):
     assert not RideOffer.objects.filter(
         ride=Ride.objects.get(pk=r.data["id"]), driver=driver
     ).exists()
+
+
+def test_local_upload_signed_url_without_token(api, tmp_path, settings):
+    """Sans R2 : URL signée (pas de jeton) construite sur l'hôte de la requête, fichier servi."""
+    from urllib.parse import urlparse
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    t = api.post(
+        "/api/v1/me/uploads",
+        {"kind": "document", "content_type": "image/jpeg", "filename": "permis.jpg"},
+        format="json",
+    )
+    assert t.status_code == 200, t.data
+    url = urlparse(t.data["upload_url"])
+    assert url.netloc == "testserver" and "sig=" in url.query  # pas API_BASE_URL
+    anon = APIClient()
+    target = f"{url.path}?{url.query}"
+    r = anon.put(target, data=b"\xff\xd8jpeg", content_type="image/jpeg")
+    assert r.status_code == 204
+    assert (
+        anon.put(target, data=b"x", content_type="image/jpeg").status_code == 409
+    )  # pas d'écrasement
+    # sans signature ou pour une autre clé : refusé
+    assert anon.put(url.path, data=b"x", content_type="image/jpeg").status_code == 403
+    other = url.path.replace("/document/", "/profile_photo/")
+    assert anon.put(f"{other}?{url.query}", data=b"x", content_type="image/jpeg").status_code == 403
+    # le fichier est servi à l'adresse annoncée
+    f = anon.get(urlparse(t.data["file_url"]).path)
+    assert f.status_code == 200 and f["Content-Type"] == "image/jpeg"
+    assert b"".join(f.streaming_content) == b"\xff\xd8jpeg"
+    assert anon.get("/media/uploads/../../etc/passwd").status_code == 404

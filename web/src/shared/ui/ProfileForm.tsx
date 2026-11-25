@@ -81,7 +81,7 @@ export function ProfileForm({ photoRequired = false }: { photoRequired?: boolean
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
       <section className="card flex items-center gap-4">
-        <div className="relative">
+        <div className="relative shrink-0">
           <Avatar src={user.photo_url} name={user.first_name || user.phone_number} size={72} />
           <label
             className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center cursor-pointer text-gray-700"

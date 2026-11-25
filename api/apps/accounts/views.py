@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import uuid
+from urllib.parse import quote
 
 from django.conf import settings
+from django.core import signing
 from django.core.files.storage import default_storage
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -27,6 +29,9 @@ from .serializers import (
     UploadRequestSerializer,
     UserSerializer,
 )
+
+UPLOAD_SALT = "vtc242.local-upload"
+UPLOAD_URL_TTL_S = 15 * 60
 
 
 class OtpRequestView(APIView):
@@ -175,8 +180,15 @@ class UploadRequestView(APIView):
             file_url = storage.url(key)
             headers = {"Content-Type": data["content_type"]}
         else:
-            upload_url = f"{settings.API_BASE_URL}/api/v1/me/uploads/{key}"
-            file_url = f"{settings.API_BASE_URL}{settings.MEDIA_URL}{key}"
+            # Stockage local (profil de test, sans R2) : URL signée valable 15 min, comme une URL
+            # pré-signée R2 ; le navigateur envoie le fichier sans jeton de connexion. L'adresse
+            # est celle par laquelle la requête est arrivée (pas API_BASE_URL, qui peut être
+            # périmée après un changement de service).
+            sig = signing.TimestampSigner(salt=UPLOAD_SALT).sign(key)
+            upload_url = request.build_absolute_uri(
+                f"/api/v1/me/uploads/{key}?sig={quote(sig, safe='')}"
+            )
+            file_url = request.build_absolute_uri(f"{settings.MEDIA_URL}{key}")
             headers = {"Content-Type": data["content_type"]}
         return Response(
             {"upload_url": upload_url, "file_url": file_url, "method": "PUT", "headers": headers}
@@ -184,13 +196,30 @@ class UploadRequestView(APIView):
 
 
 class LocalUploadView(APIView):
-    """Réception directe des fichiers en local (remplace R2)."""
+    """Réception directe des fichiers sans R2 : l'URL signée (15 min) vaut autorisation."""
 
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
     parser_classes = ()
+    throttle_classes = ()
 
     def put(self, request, key: str):
-        if not key.startswith(f"uploads/{request.user.id}/"):
+        try:
+            signed_key = signing.TimestampSigner(salt=UPLOAD_SALT).unsign(
+                request.query_params.get("sig", ""), max_age=UPLOAD_URL_TTL_S
+            )
+        except signing.SignatureExpired:
+            raise ApiError(
+                "Lien de téléversement expiré.", code="expired", status_code=403
+            ) from None
+        except signing.BadSignature:
+            raise ApiError(
+                "Lien de téléversement invalide.", code="forbidden", status_code=403
+            ) from None
+        if signed_key != key or not key.startswith("uploads/") or ".." in key:
             raise ApiError("Clé invalide.", code="forbidden", status_code=403)
+        if default_storage.exists(key):
+            raise ApiError("Fichier déjà envoyé.", code="conflict", status_code=409)
         body = request.body
         if len(body) > settings.UPLOAD_MAX_BYTES:
             raise ApiError(
