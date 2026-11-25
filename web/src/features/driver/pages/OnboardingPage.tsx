@@ -130,7 +130,7 @@ export default function OnboardingPage() {
               {status !== 'approved' && (
                 <div className="mt-3 space-y-3">
                   <label
-                    className={`flex items-center gap-3 rounded-xl border-2 border-dashed px-3 min-h-tap cursor-pointer ${
+                    className={`relative flex items-center gap-3 rounded-xl border-2 border-dashed px-3 min-h-tap cursor-pointer ${
                       picked[type] ? 'border-brand bg-brand-light' : 'border-gray-300 bg-gray-50'
                     }`}
                   >
