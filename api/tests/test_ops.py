@@ -57,14 +57,27 @@ def test_webhook_ip_allowlist(monkeypatch, db):
             REMOTE_ADDR="198.51.100.9",
         )
         assert r.status_code == 403 and calls == []
-        r = c.post(
-            "/api/v1/payments/webhooks/mtn",
-            data="{}",
-            content_type="application/json",
-            REMOTE_ADDR="127.0.0.1",
-            HTTP_X_FORWARDED_FOR="10.4.5.6, 127.0.0.1",
-        )
-        assert r.status_code == 200 and len(calls) == 1
+        # derrière le proxy Render (1 proxy de confiance) : seule sa dernière entrée compte
+        from django.conf import settings as dj
+
+        with override_settings(REST_FRAMEWORK={**dj.REST_FRAMEWORK, "NUM_PROXIES": 1}):
+            r = c.post(
+                "/api/v1/payments/webhooks/mtn",
+                data="{}",
+                content_type="application/json",
+                REMOTE_ADDR="127.0.0.1",
+                HTTP_X_FORWARDED_FOR="198.51.100.9, 10.4.5.6",
+            )
+            assert r.status_code == 200 and len(calls) == 1
+            # une IP autorisée glissée en tête par le client ne prouve rien
+            r = c.post(
+                "/api/v1/payments/webhooks/mtn",
+                data="{}",
+                content_type="application/json",
+                REMOTE_ADDR="127.0.0.1",
+                HTTP_X_FORWARDED_FOR="10.4.5.6, 198.51.100.9",
+            )
+            assert r.status_code == 403 and len(calls) == 1
     # liste vide : pas de filtrage
     r = c.post(
         "/api/v1/payments/webhooks/mtn",
@@ -104,3 +117,18 @@ def test_business_watch_raises_alerts_once(api, rules, zone):
     hc = Alert.objects.get(type=AlertType.HIGH_CANCELLATION)
     assert hc.payload["rate_pct"] == 100 and hc.payload["total"] == 5
     assert business_watch() == 0  # pas de doublon tant que l'alerte est ouverte / récente
+
+
+def test_every_beat_task_is_registered():
+    """Chaque tâche planifiée doit être connue du worker (sinon elle ne tourne jamais)."""
+    from django.conf import settings
+
+    from config.celery import app
+
+    app.loader.import_default_modules()
+    missing = [
+        entry["task"]
+        for entry in settings.CELERY_BEAT_SCHEDULE.values()
+        if entry["task"] not in app.tasks
+    ]
+    assert missing == []

@@ -2,7 +2,7 @@
 #    uv pip compile pyproject.toml -o requirements.txt --python-version 3.12
 aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.14.3
+aiohttp==3.14.5
     # via pywebpush
 aiosignal==1.4.0
     # via aiohttp
@@ -37,7 +37,7 @@ botocore==1.43.105
     #   s3transfer
 celery==5.6.3
     # via vtc242-api (pyproject.toml)
-certifi==2026.7.22
+certifi==2026.11.20
     # via
     #   httpcore
     #   httpx
@@ -73,7 +73,7 @@ cryptography==50.0.2
     #   http-ece
     #   py-vapid
     #   pywebpush
-django==5.1.15
+django==5.2.19
     # via
     #   vtc242-api (pyproject.toml)
     #   channels
@@ -93,7 +93,7 @@ django-ratelimit==4.1.0
     # via vtc242-api (pyproject.toml)
 django-storages==1.14.6
     # via vtc242-api (pyproject.toml)
-djangorestframework==3.17.2
+djangorestframework==3.18.3
     # via
     #   vtc242-api (pyproject.toml)
     #   djangorestframework-simplejwt

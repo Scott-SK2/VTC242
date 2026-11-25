@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 export function Modal({
@@ -22,7 +23,9 @@ export function Modal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  // Rendu dans <body> : un parent avec masque, transformation ou overflow (panneau
+  // rétracté) ne peut plus rogner la fenêtre ni la rendre invisible.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
       onClick={onClose}
@@ -50,6 +53,7 @@ export function Modal({
           <div className="px-5 pb-5 pt-2 flex flex-col sm:flex-row gap-2 sm:justify-end">{footer}</div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

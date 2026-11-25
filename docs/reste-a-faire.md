@@ -1,7 +1,8 @@
 # Reste à faire — VTC 242
 
-État au 6 novembre 2026. La V1 du cahier des charges v3 est développée et testée
-(54 tests backend, 24 tests web) ; location et covoiturage (prévus en V3) sont déjà livrés.
+État au 25 novembre 2026. La V1 du cahier des charges v3 est développée et testée
+(78 tests backend, 32 tests web) ; location et covoiturage (prévus en V3) sont déjà livrés.
+Audit complet du 25 novembre (sécurité, argent, interface) : points relevés corrigés.
 Cocher les cases au fur et à mesure.
 
 ## 1. Avant le lancement : brancher les vrais services
@@ -22,6 +23,9 @@ Le code est prêt ; il manque un compte ou une clé fournis par le client.
 - [ ] **Hébergement de production** : profil `api/render.production.yaml` (plans payants,
       worker et beat séparés, base sauvegardée), `RUN_WORKER_IN_WEB=0`, `SEED_DEMO=0`.
 - [ ] **Clés de notification (VAPID) de production** : en générer de nouvelles.
+- [ ] **Webhooks MTN / Airtel** : renseigner `MTN_WEBHOOK_SECRET` et `AIRTEL_WEBHOOK_SECRET`
+      (obligatoires en mode `live`, l'API refuse sinon de démarrer) et, si possible,
+      `PAYMENT_WEBHOOK_ALLOWED_IPS`.
 - [ ] **Durée d'offre chauffeur** : revenir à 15 s (`DISPATCH_OFFER_TTL_S`) si le pilote le confirme.
 
 ## 2. Valider la V1

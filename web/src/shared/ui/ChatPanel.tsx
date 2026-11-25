@@ -75,7 +75,7 @@ export function ChatPanel({ rideId, me }: { rideId: string; me: 'passenger' | 'd
             type="button"
             disabled={sending}
             onClick={() => void send({ preset: p })}
-            className="shrink-0 rounded-full border border-brand text-brand-dark px-3 min-h-[40px] text-sm font-semibold"
+            className="shrink-0 rounded-full border border-brand text-brand-dark px-3 min-h-tap text-sm font-semibold"
           >
             {t(`chat.presets.${p}`)}
           </button>

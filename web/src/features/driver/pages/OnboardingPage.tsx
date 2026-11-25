@@ -11,13 +11,14 @@ import {
   SelectField,
   ErrorBox,
   ProfileForm,
+  errorMessage,
   type BadgeTone,
 } from '@/shared/ui';
 import { driversApi, uploadFile } from '@/shared/api/endpoints';
 import { qk } from '@/shared/api/hooks';
 import type { DocumentType, DriverDocument, Vehicle, VehicleCategory } from '@/shared/api/types';
 import { toast } from '@/shared/store/ui';
-import { formatDate } from '@/shared/utils/date';
+import { formatDate, localToday } from '@/shared/utils/date';
 
 const DOC_TYPES: DocumentType[] = [
   'license',
@@ -48,7 +49,7 @@ export default function OnboardingPage() {
   const [expires, setExpires] = useState<Partial<Record<DocumentType, string>>>({});
   // Fichier choisi mais pas encore envoyé : l'ordre (fichier puis date, ou l'inverse) est libre.
   const [picked, setPicked] = useState<Partial<Record<DocumentType, File>>>({});
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const hasTaxi = (vehicles.data ?? []).some((v) => v.category === 'taxi');
@@ -80,7 +81,7 @@ export default function OnboardingPage() {
         qc.invalidateQueries({ queryKey: qk.driverMe }),
       ]);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      toast(errorMessage(e, t), 'error');
     } finally {
       setUploading(null);
     }
@@ -216,8 +217,8 @@ export default function OnboardingPage() {
               </div>
               <div className="text-sm text-gray-600">
                 {v.license_plate}
-                {v.taxi_number ? ` · N° ${v.taxi_number}` : ''} · {t(`categories.${v.category}`)} · {v.seats}{' '}
-                pl.
+                {v.taxi_number ? ` · N° ${v.taxi_number}` : ''} · {t(`categories.${v.category}`)} ·{' '}
+                {t('common.seatsShort', { count: v.seats })}
               </div>
               <div className="flex gap-1 mt-1">
                 {v.is_active && <Badge tone="green">{t('driver.onboarding.active')}</Badge>}

@@ -11,6 +11,9 @@ interface UiState {
   online: boolean;
   installPromptEvent: BeforeInstallPromptEvent | null;
   installOffered: boolean;
+  /** Nouvelle version prête : appliquer() recharge l'application. */
+  updateReady: (() => void) | null;
+  setUpdateReady: (apply: (() => void) | null) => void;
   toast: (message: string, kind?: Toast['kind']) => void;
   dismiss: (id: number) => void;
   setOnline: (v: boolean) => void;
@@ -29,6 +32,8 @@ export const useUiStore = create<UiState>((set) => ({
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
   installPromptEvent: null,
   installOffered: false,
+  updateReady: null,
+  setUpdateReady: (updateReady) => set({ updateReady }),
   toast: (message, kind = 'info') => {
     const id = ++seq;
     set((s) => ({ toasts: [...s.toasts, { id, kind, message }] }));

@@ -1,5 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { lazy, Suspense } from 'react';
+
+// Service de fond chauffeur (position, offres) : actif sur tous les onglets chauffeur
+const DriverSession = lazy(() => import('@/features/driver/DriverSession'));
 
 const icons = {
   home: 'M3 11 12 3l9 8v10h-6v-6H9v6H3z',
@@ -21,6 +25,11 @@ export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
   ];
   return (
     <div className="h-full flex flex-col max-w-screen-md mx-auto w-full">
+      {role === 'driver' && (
+        <Suspense fallback={null}>
+          <DriverSession />
+        </Suspense>
+      )}
       {/* overflow: clip (et non hidden) : la zone ne peut jamais défiler, même quand le navigateur
           remet sous les yeux un champ caché (retour du sélecteur de fichiers sur Android) */}
       <main className="flex-1 min-h-0 relative overflow-hidden [overflow:clip]">
@@ -28,7 +37,7 @@ export function MobileLayout({ role }: { role: 'passenger' | 'driver' }) {
       </main>
       <nav
         className="shrink-0 border-t border-gray-100 bg-white shadow-[0_-2px_12px_rgba(17,19,24,0.04)]"
-        aria-label="Navigation principale"
+        aria-label={t('nav.main')}
         style={{ paddingBottom: 'var(--safe-bottom)' }}
       >
         <ul className="grid grid-cols-5">

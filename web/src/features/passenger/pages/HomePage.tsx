@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -47,6 +47,9 @@ export default function HomePage() {
   const [pickup, setPickup] = useState<Place | null>(null);
   const [dropoff, setDropoff] = useState<Place | null>(null);
   const [pickTarget, setPickTarget] = useState<'pickup' | 'dropoff'>('dropoff');
+  // adresse tapée sans résultat : gardée à part tant que le point n'est pas placé sur la carte
+  // (sinon la destination prenait les coordonnées du départ et la course était commandable)
+  const [pendingAddress, setPendingAddress] = useState<string | null>(null);
   const [category, setCategory] = useState<VehicleCategory | null>(null);
   // Décision client : paiement par wallet uniquement (les espèces restent désactivées côté zone)
   const payment: PaymentMethod = 'wallet';
@@ -61,6 +64,14 @@ export default function HomePage() {
   useEffect(() => {
     if (fix && !pickup) setPickup({ lat: fix.lat, lng: fix.lng, address: t('passenger.home.myPosition') });
   }, [fix, pickup, t]);
+  // Simulation coupée : le départ « Ma position » simulé n'est plus valable
+  const wasSimulated = useRef(simulated);
+  useEffect(() => {
+    if (wasSimulated.current && !simulated)
+      setPickup((old) => (old && old.address === t('passenger.home.myPosition') ? null : old));
+    wasSimulated.current = simulated;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulated]);
   useEffect(() => {
     if (simulated && fix && mode === 'idle')
       setPickup({ lat: fix.lat, lng: fix.lng, address: t('passenger.home.myPosition') });
@@ -85,7 +96,14 @@ export default function HomePage() {
       }),
     onSuccess: (ride) => nav(`/p/ride/${ride.id}`, { replace: true }),
     onError: (e) => {
-      if (isApiError(e) && e.status === 409) toast(t('passenger.order.alreadyActive'), 'error');
+      if (isApiError(e) && e.status === 409) {
+        toast(t('passenger.order.alreadyActive'), 'error');
+        // une course est déjà en cours : on y va
+        void ridesApi
+          .active()
+          .then((r) => r && nav(`/p/ride/${r.id}`, { replace: true }))
+          .catch(() => undefined);
+      }
     },
   });
 
@@ -123,19 +141,8 @@ export default function HomePage() {
     if (p.lat === undefined || p.lng === undefined) {
       // Saisie libre : on demande de placer le point sur la carte
       setPickTarget(target);
+      setPendingAddress(p.address);
       setMode('pick-on-map');
-      if (target === 'pickup')
-        setPickup({
-          address: p.address,
-          lat: pickup?.lat ?? fix?.lat ?? BRAZZAVILLE.lat,
-          lng: pickup?.lng ?? fix?.lng ?? BRAZZAVILLE.lng,
-        });
-      else
-        setDropoff({
-          address: p.address,
-          lat: pickup?.lat ?? BRAZZAVILLE.lat,
-          lng: pickup?.lng ?? BRAZZAVILLE.lng,
-        });
       return;
     }
     const place = { address: p.address, lat: p.lat, lng: p.lng };
@@ -162,19 +169,22 @@ export default function HomePage() {
             ? (p) => {
                 // jamais d'adresse vide (refusée par l'API) : nom provisoire, puis nom du lieu
                 const target = pickTarget;
-                const place = { ...p, address: t('passenger.home.pointOnMap') };
+                const typed = pendingAddress?.trim();
+                setPendingAddress(null);
+                const place = { ...p, address: typed || t('passenger.home.pointOnMap') };
                 if (target === 'pickup') setPickup(place);
                 else setDropoff(place);
-                void geoApi
-                  .reverse(p.lat, p.lng)
-                  .then(({ label }) => {
-                    if (!label) return;
-                    const named = (old: Place | null) =>
-                      old && old.lat === p.lat && old.lng === p.lng ? { ...old, address: label } : old;
-                    if (target === 'pickup') setPickup(named);
-                    else setDropoff(named);
-                  })
-                  .catch(() => undefined);
+                if (!typed)
+                  void geoApi
+                    .reverse(p.lat, p.lng)
+                    .then(({ label }) => {
+                      if (!label) return;
+                      const named = (old: Place | null) =>
+                        old && old.lat === p.lat && old.lng === p.lng ? { ...old, address: label } : old;
+                      if (target === 'pickup') setPickup(named);
+                      else setDropoff(named);
+                    })
+                    .catch(() => undefined);
                 const otherMissing = pickTarget === 'dropoff' ? !pickup : !dropoff;
                 setMode(
                   otherMissing ? (pickTarget === 'dropoff' ? 'search-pickup' : 'search-dropoff') : 'estimate',
@@ -318,10 +328,17 @@ export default function HomePage() {
           </p>
           <p className="text-sm text-gray-600 mb-3">
             {t('passenger.search.notFoundHint', {
-              q: (pickTarget === 'pickup' ? pickup : dropoff)?.address ?? '',
+              q: pendingAddress ?? (pickTarget === 'pickup' ? pickup : dropoff)?.address ?? '',
             })}
           </p>
-          <Button variant="secondary" block onClick={() => setMode(pickup && dropoff ? 'estimate' : 'idle')}>
+          <Button
+            variant="secondary"
+            block
+            onClick={() => {
+              setPendingAddress(null);
+              setMode(pickup && dropoff ? 'estimate' : 'idle');
+            }}
+          >
             {t('common.cancel')}
           </Button>
         </Sheet>
@@ -452,7 +469,7 @@ export default function HomePage() {
                   </Button>
                 </div>
               )}
-              {order.error && !insufficient && (
+              {order.error && !insufficient && !(isApiError(order.error) && order.error.status === 409) && (
                 <p className="text-sm text-alert mb-2" role="alert">
                   {errorMessage(order.error, t)}
                 </p>

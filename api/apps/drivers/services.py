@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import transaction
@@ -43,6 +43,10 @@ def blocking_reason(driver: Driver) -> str | None:
             DriverStatus.SUSPENDED: "Compte suspendu.",
             DriverStatus.REJECTED: "Compte refusé.",
         }[driver.status]
+    from apps.carpool.models import CarpoolTrip, TripStatus
+
+    if CarpoolTrip.objects.filter(driver=driver.user_id, status=TripStatus.IN_PROGRESS).exists():
+        return "Terminez votre trajet de covoiturage avant de prendre des courses."
     if driver.active_vehicle_id is None:
         return "Aucun véhicule actif."
     if driver.active_vehicle and not driver.active_vehicle.is_verified:
@@ -78,11 +82,21 @@ def set_online(driver: Driver, is_online: bool) -> Driver:
         driver.is_available = False
         driver.online_since = None
     driver.save(update_fields=["is_online", "is_available", "online_since", "updated_at"])
-    if driver.is_online and driver.current_location:
+    _reindex(driver)
+    return driver
+
+
+def _reindex(driver: Driver) -> None:
+    """Remet le chauffeur dans l'index géographique seulement si sa position est récente :
+    une position perdue (veille du watchdog) ne doit pas lui valoir des offres à un endroit
+    qu'il a quitté. Il y revient à sa prochaine position."""
+    fresh = driver.last_location_at is not None and (
+        timezone.now() - driver.last_location_at < timedelta(seconds=settings.POSITION_LOST_AFTER_S)
+    )
+    if driver.is_online and driver.current_location and fresh:
         geoindex.update_position(driver, driver.current_location.y, driver.current_location.x)
     else:
         geoindex.remove(driver)
-    return driver
 
 
 def _has_active_ride(driver: Driver) -> bool:
@@ -94,10 +108,7 @@ def _has_active_ride(driver: Driver) -> bool:
 def set_availability(driver: Driver, available: bool) -> None:
     Driver.objects.filter(pk=driver.pk).update(is_available=available and driver.is_online)
     driver.is_available = available and driver.is_online
-    if driver.current_location:
-        geoindex.update_position(driver, driver.current_location.y, driver.current_location.x)
-    else:
-        geoindex.remove(driver)
+    _reindex(driver)
 
 
 def record_positions(driver: Driver, positions: list[dict]) -> int:

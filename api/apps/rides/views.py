@@ -32,7 +32,7 @@ from .serializers import (
 
 
 def _ride_response(ride, request, status=200):
-    ride = services.get_ride_for(request.user, ride.id)
+    ride = services.get_ride_for(request.user, ride.id, allow_offered=True)
     return Response(
         RideSerializer(ride, context={"role": request.user.role, "user": request.user}).data,
         status=status,
@@ -91,7 +91,7 @@ class RideDetailView(APIView):
     permission_classes = (IsPassengerOrDriver,)
 
     def get(self, request, ride_id):
-        ride = services.get_ride_for(request.user, ride_id)
+        ride = services.get_ride_for(request.user, ride_id, allow_offered=True)
         return Response(
             RideSerializer(ride, context={"role": request.user.role, "user": request.user}).data
         )

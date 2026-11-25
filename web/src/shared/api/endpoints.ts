@@ -1,4 +1,4 @@
-import { api, request, requestRaw } from './client';
+import { api, ApiError, request, requestRaw } from './client';
 import type {
   AdminDispute,
   AdminDriver,
@@ -73,6 +73,8 @@ export const meApi = {
   switchMode: (role: 'passenger' | 'driver') => api.post<OtpVerifyResponse>('/me/mode', { role }),
   pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string }; user_agent?: string }) =>
     api.post<void>('/me/push-subscriptions', sub),
+  pushUnsubscribe: (endpoint: string) =>
+    api.delete<void>('/me/push-subscriptions', { body: { endpoint } }),
   createUpload: (kind: 'profile_photo' | 'document', content_type: string, filename: string) =>
     api.post<UploadTicket>('/me/uploads', { kind, content_type, filename }),
 };
@@ -85,7 +87,15 @@ export async function uploadFile(kind: 'profile_photo' | 'document', file: File)
     headers: { 'Content-Type': file.type || 'application/octet-stream', ...(ticket.headers ?? {}) },
     body: file,
   });
-  if (!res.ok) throw new Error(`Téléversement refusé (${res.status})`);
+  if (!res.ok) {
+    let body: { message?: string; code?: string } | null = null;
+    try {
+      body = (await res.json()) as { message?: string; code?: string };
+    } catch {
+      /* corps vide ou non JSON (stockage R2) */
+    }
+    throw new ApiError(res.status, body, 'Le fichier n’a pas pu être envoyé. Réessayez.');
+  }
   return ticket.file_url;
 }
 

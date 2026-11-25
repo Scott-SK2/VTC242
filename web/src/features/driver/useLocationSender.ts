@@ -56,6 +56,17 @@ export function useLocationSender(enabled: boolean, rideId: string | null) {
     lastSentRef.current = { fix: f, at: Date.now() };
   };
 
+  // Fin de la simulation : la dernière position simulée ne doit plus servir (boutons
+  // « Arrivé » / « Terminer », envoi au serveur) tant que le vrai GPS n'a pas répondu
+  const wasSim = useRef(simEnabled);
+  useEffect(() => {
+    if (wasSim.current && !simEnabled) {
+      setFix(null);
+      lastSentRef.current = null;
+    }
+    wasSim.current = simEnabled;
+  }, [simEnabled]);
+
   // Mode test : position simulée envoyée immédiatement puis toutes les 10 s (comme à l'arrêt)
   useEffect(() => {
     if (!enabled || !simEnabled) return;

@@ -7,6 +7,8 @@ import { useWsConnection, useWsStatus } from '@/shared/ws';
 export function RootLayout() {
   useWsConnection();
   const online = useUiStore((s) => s.online);
+  const updateReady = useUiStore((s) => s.updateReady);
+  const setUpdateReady = useUiStore((s) => s.setUpdateReady);
   const wsStatus = useWsStatus();
   const { t } = useTranslation();
   const [showReconnect, setShowReconnect] = useState(false);
@@ -32,6 +34,22 @@ export function RootLayout() {
       {online && showReconnect && (
         <div className="bg-gray-100 text-gray-700 text-xs text-center py-1 px-4" role="status">
           {t('common.wsReconnecting')}
+        </div>
+      )}
+      {updateReady && (
+        <div
+          className="bg-brand-light text-brand-dark text-sm py-2 px-4 flex items-center justify-between gap-3"
+          role="status"
+        >
+          <span className="font-semibold">{t('pwa.updateReady')}</span>
+          <span className="flex gap-2 shrink-0">
+            <button type="button" className="underline min-h-tap px-1" onClick={() => setUpdateReady(null)}>
+              {t('pwa.later')}
+            </button>
+            <button type="button" className="font-extrabold underline min-h-tap px-1" onClick={updateReady}>
+              {t('pwa.update')}
+            </button>
+          </span>
         </div>
       )}
       <div className="flex-1 min-h-0 relative">

@@ -74,7 +74,8 @@ export function RentalListingCard({ listing, onOpen }: { listing: RentalListing;
           <div className="min-w-0">
             <div className="font-extrabold truncate">{listing.title}</div>
             <div className="text-sm text-gray-600 truncate">
-              {v.brand} {v.model} · {v.color} · {t(`categories.${v.category}`)} · {v.seats} pl.
+              {v.brand} {v.model} · {v.color} · {t(`categories.${v.category}`)} ·{' '}
+              {t('common.seatsShort', { count: v.seats })}
             </div>
           </div>
           <Badge tone="neutral">{listing.city}</Badge>
@@ -205,7 +206,7 @@ export function CarpoolTripCard({ trip, onOpen }: { trip: CarpoolTrip; onOpen?: 
         </div>
         <div className="text-right shrink-0">
           <div className="font-extrabold">{formatMoney(trip.price_per_seat)}</div>
-          <div className="text-xs text-gray-500">/ place</div>
+          <div className="text-xs text-gray-500">{t('common.perSeat')}</div>
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">

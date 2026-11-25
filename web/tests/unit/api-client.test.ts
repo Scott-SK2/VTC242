@@ -45,6 +45,16 @@ describe('client API', () => {
     expect(useAuthStore.getState().refreshToken).toBeNull();
   });
 
+  it('garde la session si le refresh échoue pour une raison passagère (5xx, réseau)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (String(input).endsWith('/auth/token/refresh')) return jsonResponse(502, { message: 'Bad gateway' });
+      return jsonResponse(401, { code: 'token_not_valid', message: 'expiré' });
+    });
+    const err = await api.get('/me').catch((e: unknown) => e);
+    expect((err as ApiError).code).toBe('network_error');
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-1');
+  });
+
   it('typifie les erreurs {code, message, details}', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse(402, {

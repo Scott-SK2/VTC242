@@ -25,8 +25,13 @@ export function MobilePage({
         {back && (
           <button
             type="button"
-            onClick={() => nav(-1)}
-            className="h-10 w-10 -ml-1 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0"
+            onClick={() => {
+              // ouverture directe (lien, appli installée) : pas d'historique, retour à la section
+              const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+              if (idx > 0) nav(-1);
+              else nav(`/${window.location.pathname.split('/')[1] ?? ''}`, { replace: true });
+            }}
+            className="h-11 w-11 -ml-1 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0"
             aria-label={t('common.back')}
           >
             <Icon name="chevron" size={20} className="rotate-180" />

@@ -1,3 +1,4 @@
+import i18n from '@/shared/i18n';
 import { useEffect, useState } from 'react';
 
 /** Compte à rebours en jaune (usage réservé : offre chauffeur, code de départ). */
@@ -30,7 +31,13 @@ export function CountdownRing({ seconds, total }: { seconds: number; total: numb
   const c = 2 * Math.PI * r;
   const ratio = total > 0 ? Math.min(1, seconds / total) : 0;
   return (
-    <div className="relative h-28 w-28" role="timer" aria-live="polite" aria-label={`${seconds} secondes`}>
+    <div
+      className="relative h-28 w-28"
+      role="timer"
+      // pas d'annonce chaque seconde (lecteurs d'écran saturés) : libellé consultable seulement
+      aria-live="off"
+      aria-label={i18n.t('common.secondsLeft', { count: seconds })}
+    >
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         <circle cx="50" cy="50" r={r} fill="none" stroke="#FFF6D6" strokeWidth="8" />
         <circle

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import environ
 
@@ -207,7 +208,14 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.common.exceptions.exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": ("apps.common.throttling.UserBurstThrottle",),
-    "DEFAULT_THROTTLE_RATES": {"user_burst": "60/min", "otp": "20/hour", "start": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "user_burst": "60/min",
+        "otp": "20/hour",
+        "otp_ip": env("OTP_IP_RATE", default="60/hour"),
+        "start": "10/min",
+    },
+    # proxys de confiance devant l'API (Render : 1) pour lire la vraie IP cliente
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=0) or None,
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
 
@@ -270,7 +278,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STORAGES = {
+STORAGES: dict[str, dict[str, Any]] = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
@@ -303,6 +311,9 @@ DISPATCH_RADII_M = (2000, 4000, 6000)
 # Location de véhicules et covoiturage (services complémentaires)
 RENTAL_COMMISSION_RATE = Decimal(env("RENTAL_COMMISSION_RATE", default="0.10"))
 RENTAL_FREE_CANCEL_DAYS = env.int("RENTAL_FREE_CANCEL_DAYS", default=2)
+RENTAL_NO_SHOW_DAYS = env.int("RENTAL_NO_SHOW_DAYS", default=1)
+RENTAL_AUTO_COMPLETE_DAYS = env.int("RENTAL_AUTO_COMPLETE_DAYS", default=2)
+CARPOOL_AUTO_COMPLETE_HOURS = env.int("CARPOOL_AUTO_COMPLETE_HOURS", default=24)
 RENTAL_LATE_CANCEL_FEE_RATE = Decimal(env("RENTAL_LATE_CANCEL_FEE_RATE", default="0.10"))
 CARPOOL_COMMISSION_RATE = Decimal(env("CARPOOL_COMMISSION_RATE", default="0.10"))
 CARPOOL_FREE_CANCEL_HOURS = env.int("CARPOOL_FREE_CANCEL_HOURS", default=2)
@@ -371,7 +382,7 @@ AIRTEL = {
     "WEBHOOK_SECRET": env("AIRTEL_WEBHOOK_SECRET"),
 }
 
-LOGGING = {
+LOGGING: dict[str, Any] = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {

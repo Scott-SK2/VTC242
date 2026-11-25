@@ -84,3 +84,74 @@ describe('adresse du WebSocket', () => {
     expect(wsBaseFrom(undefined)).toBe('ws://localhost:8000/ws/');
   });
 });
+
+class AsyncCloseSocket extends FakeSocket {
+  // un vrai navigateur émet `close` plus tard, après l'ouverture de la socket suivante
+  override close() {
+    this.readyState = 3;
+    setTimeout(() => this.onclose?.({ code: 1000 }), 0);
+  }
+}
+
+describe('WsClient : une seule socket vivante', () => {
+  it("ignore la fermeture tardive de l'ancienne socket (pas de socket orpheline)", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('WebSocket', AsyncCloseSocket);
+    FakeSocket.instances = [];
+    const client = new WsClient(() => 'tok');
+    const onOpen = vi.fn();
+    client.on('ws.open', onOpen);
+    client.connect();
+    await Promise.resolve();
+    (FakeSocket.instances[0] as FakeSocket).open();
+    client.restart(); // changement de session
+    await Promise.resolve();
+    expect(FakeSocket.instances).toHaveLength(2);
+    (FakeSocket.instances[1] as FakeSocket).open();
+    await vi.advanceTimersByTimeAsync(20_000); // la fermeture de la 1re arrive, puis les backoffs
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(client.status).toBe('open');
+    // le 2e `ws.open` est signalé comme une reconnexion (resynchronisation des écrans)
+    expect(onOpen).toHaveBeenLastCalledWith({ reconnected: true }, expect.anything());
+    client.close();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(FakeSocket.instances).toHaveLength(2);
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('redemande un token neuf quand le serveur ferme pour changement de session (4000)', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('WebSocket', FakeSocket);
+    FakeSocket.instances = [];
+    const getToken = vi.fn(({ force }: { force: boolean }) => (force ? 'neuf' : 'ancien'));
+    const client = new WsClient(getToken);
+    client.connect();
+    await Promise.resolve();
+    const first = FakeSocket.instances[0] as FakeSocket;
+    first.open();
+    first.onclose?.({ code: 4000 });
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect((FakeSocket.instances[1] as FakeSocket).url).toContain('token=neuf');
+    client.close();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('redemande un token neuf quand le serveur refuse la connexion', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('WebSocket', FakeSocket);
+    FakeSocket.instances = [];
+    const getToken = vi.fn(({ force }: { force: boolean }) => (force ? 'neuf' : 'perime'));
+    const client = new WsClient(getToken);
+    client.connect();
+    await Promise.resolve();
+    (FakeSocket.instances[0] as FakeSocket).onclose?.({ code: 4401 });
+    await vi.advanceTimersByTimeAsync(1001);
+    expect((FakeSocket.instances[1] as FakeSocket).url).toContain('token=neuf');
+    client.close();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+});

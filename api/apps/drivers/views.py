@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.permissions import IsDriver
+from apps.common.uploads import check_own_upload
 
 from . import services
 from .models import Driver
@@ -96,6 +97,7 @@ class DocumentListView(APIView):
         ser = DocumentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         d = ser.validated_data
+        check_own_upload(d["file_url"], request)
         doc = services.add_document(_driver(request), d["type"], d["file_url"], d.get("expires_at"))
         return Response(DriverDocumentSerializer(doc).data, status=201)
 

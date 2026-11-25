@@ -110,10 +110,30 @@ def reserve(user, amount: Decimal, what: str = "cette course") -> Wallet:
 @transaction.atomic
 def release(user, amount: Decimal) -> Wallet:
     wallet = _locked(user)
-    wallet.reserved_balance = d(max(ZERO, wallet.reserved_balance - d(amount)))
+    _unreserve(wallet, amount)
     wallet.save(update_fields=["reserved_balance", "updated_at"])
     _notify(wallet)
     return wallet
+
+
+def _unreserve(wallet: Wallet, amount: Decimal) -> None:
+    """Lève une réservation (sans sauvegarder). Un montant supérieur au réservé signale une
+    double libération : on le borne à zéro mais on le trace (contrôle nocturne)."""
+    amount = d(amount)
+    if amount > wallet.reserved_balance:
+        log.warning(
+            "Libération de %s supérieure au réservé %s (wallet %s)",
+            amount,
+            wallet.reserved_balance,
+            wallet.pk,
+        )
+    wallet.reserved_balance = d(max(ZERO, wallet.reserved_balance - amount))
+
+
+def _spendable(wallet: Wallet) -> Decimal:
+    """Ce qu'on peut débiter sans toucher aux fonds réservés pour d'autres prestations
+    (à appeler après avoir levé la réservation de la prestation réglée)."""
+    return d(max(ZERO, wallet.balance - wallet.reserved_balance))
 
 
 # --- règlement de course (section 8.4) ---------------------------------------------
@@ -127,20 +147,25 @@ def settle_ride(ride, final_price: Decimal, commission: Decimal) -> dict:
 
     if ride.payment_method == PaymentMethod.WALLET:
         pw = _locked(ride.passenger)
-        reserved = d(ride.reserved_amount)
-        pw.reserved_balance = d(max(ZERO, pw.reserved_balance - reserved))
+        _unreserve(pw, ride.reserved_amount)
         charge = final_price
-        max_charge = d(pw.balance)  # réservation + disponible = solde total
+        # réservation de la course + disponible, sans entamer les autres réservations
+        # (place de covoiturage, location) du passager
+        max_charge = _spendable(pw)
         if charge > max_charge:
-            charge = max(ZERO, max_charge)
+            charge = max_charge
             result["capped"] = True
+            if final_price > ZERO:
+                # commission au prorata de ce qui a réellement été encaissé
+                commission = min(commission, round_franc(commission * charge / final_price))
+                result["commission"] = commission
         if charge > ZERO:
             _ledger(pw, TransactionType.RIDE_PAYMENT, -charge, ride=ride)
         else:
             pw.save(update_fields=["reserved_balance", "updated_at"])
         result["charged"] = charge
         _notify(pw)
-        earning = d(charge - commission) if charge < final_price else d(final_price - commission)
+        earning = d(charge - commission)
         dw = _locked(ride.driver.user)
         _ledger(dw, TransactionType.RIDE_EARNING, earning + commission, ride=ride)
         _ledger(dw, TransactionType.COMMISSION, -commission, ride=ride)
@@ -166,8 +191,9 @@ def settle_service(
     commission = d(min(commission, amount))
     meta = {"kind": kind, "reference": reference}
     pw = _locked(payer)
-    pw.reserved_balance = d(max(ZERO, pw.reserved_balance - amount))
-    charge = d(min(amount, max(ZERO, pw.balance)))
+    _unreserve(pw, amount)
+    charge = d(min(amount, _spendable(pw)))
+    commission = d(min(commission, charge))
     if charge > ZERO:
         _ledger(pw, TransactionType.SERVICE_PAYMENT, -charge, payload=meta)
     else:
@@ -197,8 +223,8 @@ def charge_service_cancellation(
     fee = d(fee)
     meta = {"kind": kind, "reference": reference}
     pw = _locked(payer)
-    pw.reserved_balance = d(max(ZERO, pw.reserved_balance - reserved))
-    fee = d(min(fee, max(ZERO, pw.balance)))
+    _unreserve(pw, reserved)
+    fee = d(min(fee, _spendable(pw)))
     if fee > ZERO:
         _ledger(pw, TransactionType.CANCELLATION_FEE, -fee, payload=meta)
     else:
@@ -218,9 +244,8 @@ def charge_cancellation(ride, fee: Decimal, driver_share: Decimal) -> Decimal:
     if fee <= ZERO:
         return ZERO
     pw = _locked(ride.passenger)
-    reserved = d(ride.reserved_amount)
-    pw.reserved_balance = d(max(ZERO, pw.reserved_balance - reserved))
-    fee = min(fee, d(max(ZERO, pw.balance)))
+    _unreserve(pw, ride.reserved_amount)
+    fee = min(fee, _spendable(pw))
     if fee > ZERO:
         _ledger(pw, TransactionType.CANCELLATION_FEE, -fee, ride=ride)
     else:
@@ -263,16 +288,18 @@ def refund(ride, amount: Decimal, actor=None, note: str = "") -> WalletTransacti
 
 
 def ride_charged_and_refunded(ride) -> tuple[Decimal, Decimal]:
-    """Montant réellement débité au passager pour la course et total déjà remboursé."""
-    from django.db.models import Sum
-
+    """Montant réellement débité au passager pour la course et total déjà remboursé
+    (une course payée en espèces compte pour son prix final)."""
     pw = get_wallet(ride.passenger)
     rows = WalletTransaction.objects.filter(
         wallet=pw, ride=ride, status=TransactionStatus.COMPLETED
     )
-    charged = -(
-        rows.filter(type=TransactionType.RIDE_PAYMENT).aggregate(s=Sum("amount"))["s"] or ZERO
-    )
+    if ride.payment_method == PaymentMethod.CASH:
+        charged = d(ride.final_price or ZERO)
+    else:
+        charged = -(
+            rows.filter(type=TransactionType.RIDE_PAYMENT).aggregate(s=Sum("amount"))["s"] or ZERO
+        )
     refunded = rows.filter(type=TransactionType.REFUND).aggregate(s=Sum("amount"))["s"] or ZERO
     return d(charged), d(refunded)
 
@@ -285,6 +312,9 @@ def refund_ride(ride, amount: Decimal, actor, reason: str) -> WalletTransaction:
     amount = d(amount)
     if ride.status != "completed":
         raise Unprocessable("Seule une course terminée peut être remboursée.", code="invalid_state")
+    # verrou du wallet passager AVANT le calcul : deux remboursements simultanés
+    # (double clic, litige + geste commercial) ne peuvent pas dépasser le débit
+    _locked(ride.passenger)
     charged, refunded = ride_charged_and_refunded(ride)
     remaining = d(max(ZERO, charged - refunded))
     if amount <= ZERO or amount > remaining:
@@ -324,10 +354,12 @@ def deposit(
     if amount < Decimal("100"):
         raise Unprocessable("Montant minimum de recharge : 100 F.", code="amount_too_low")
     key = idempotency_key or uuid.uuid4().hex
+    wallet = _locked(user)
     existing = WalletTransaction.objects.filter(idempotency_key=key).first()
     if existing:
+        if existing.wallet_id != wallet.pk:
+            raise ApiError("Clé d'idempotence déjà utilisée.", code="idempotency_conflict")
         return existing
-    wallet = _locked(user)
     tx = _ledger(
         wallet,
         TransactionType.DEPOSIT,
@@ -360,6 +392,14 @@ def payout(
             code="below_minimum",
             details={"minimum": str(payout_min)},
         )
+    key = idempotency_key or uuid.uuid4().hex
+    # verrou d'abord : deux retraits simultanés ne peuvent pas dépasser le plafond
+    wallet = _locked(driver.user)
+    existing = WalletTransaction.objects.filter(idempotency_key=key).first()
+    if existing:
+        if existing.wallet_id != wallet.pk:
+            raise ApiError("Clé d'idempotence déjà utilisée.", code="idempotency_conflict")
+        return existing
     today = timezone.now().date()
     already = (
         WalletTransaction.objects.filter(
@@ -376,11 +416,6 @@ def payout(
             code="daily_cap",
             details={"daily_cap": str(daily_cap), "already": str(-already)},
         )
-    key = idempotency_key or uuid.uuid4().hex
-    existing = WalletTransaction.objects.filter(idempotency_key=key).first()
-    if existing:
-        return existing
-    wallet = _locked(driver.user)
     if wallet.available < amount:
         raise PaymentRequired(
             "Solde disponible insuffisant.", details={"available": str(wallet.available)}
@@ -435,19 +470,38 @@ def reject_payout(req: PayoutRequest, actor, note: str = "") -> PayoutRequest:
         .select_related("transaction")
         .get(pk=req.pk)
     )
-    if req.status not in (PayoutStatus.AWAITING_APPROVAL, PayoutStatus.PENDING):
+    tx = req.transaction
+    stuck = (
+        req.status in (PayoutStatus.PENDING, PayoutStatus.PROCESSING)
+        and tx is not None
+        and tx.status == TransactionStatus.PENDING
+        and timezone.now() - tx.created_at > timedelta(seconds=settings.DEPOSIT_EXPIRE_AFTER_S)
+    )
+    if req.status != PayoutStatus.AWAITING_APPROVAL and not stuck:
+        # déjà transmis à l'opérateur : seul un retrait bloqué (sans réponse depuis
+        # 15 min, vérifié ci-dessous auprès de l'opérateur) peut encore être rejeté
         raise Unprocessable("Ce retrait ne peut plus être rejeté.", code="invalid_state")
-    req.status = PayoutStatus.REJECTED
+    if stuck and tx.external_reference:
+        status = get_provider(tx.operator or "mtn").get_status(
+            tx.external_reference, "disbursement"
+        )
+        if status == "completed":
+            mark_transaction(tx.pk, "completed", {"source": "reject_check"})
+            raise Unprocessable(
+                "L'opérateur confirme que ce retrait a été versé.", code="already_paid"
+            )
     req.processed_by = actor
     req.processed_at = timezone.now()
     req.note = note
-    req.save()
-    _fail_and_recredit(req.transaction, f"Rejeté par la finance : {note}")
+    req.save(update_fields=["processed_by", "processed_at", "note", "updated_at"])
+    _fail_and_recredit(tx, f"Rejeté par la finance : {note}", final=PayoutStatus.REJECTED)
     return req
 
 
 # --- transitions de transaction (webhook / polling) ---------------------------------
-def _fail_and_recredit(tx: WalletTransaction, reason: str) -> None:
+def _fail_and_recredit(
+    tx: WalletTransaction, reason: str, final: str = PayoutStatus.FAILED
+) -> None:
     tx = WalletTransaction.objects.select_for_update().get(pk=tx.pk)
     if tx.status != TransactionStatus.PENDING:
         return
@@ -460,7 +514,7 @@ def _fail_and_recredit(tx: WalletTransaction, reason: str) -> None:
         wallet.save(update_fields=["balance", "updated_at"])
         _notify(wallet)
         PayoutRequest.objects.filter(transaction=tx).update(
-            status=PayoutStatus.FAILED, processed_at=timezone.now()
+            status=final, processed_at=timezone.now()
         )
         from apps.common.push import send_push
 
@@ -478,7 +532,14 @@ def mark_transaction(tx_id, status: str, payload: dict | None = None) -> WalletT
         .filter(pk=tx_id)
         .first()
     )
-    if tx is None or tx.status != TransactionStatus.PENDING:
+    if tx is None:
+        return tx
+    late_deposit = (
+        tx.status == TransactionStatus.EXPIRED
+        and tx.type == TransactionType.DEPOSIT
+        and status == "completed"
+    )
+    if tx.status != TransactionStatus.PENDING and not late_deposit:
         return tx
     if payload:
         tx.provider_payload = {**tx.provider_payload, "final": payload}
@@ -506,27 +567,41 @@ def mark_transaction(tx_id, status: str, payload: dict | None = None) -> WalletT
     elif status == "failed":
         _fail_and_recredit(tx, str((payload or {}).get("reason", "Refusé par l'opérateur")))
     elif status == "expired":
-        if tx.type == TransactionType.PAYOUT:
-            _fail_and_recredit(tx, "Expiré sans confirmation opérateur")
-        else:
+        # un retrait n'est jamais recrédité sur simple délai : l'argent est peut-être
+        # déjà parti chez l'opérateur (voir poll_pending, revue manuelle)
+        if tx.type == TransactionType.DEPOSIT:
             tx.status = TransactionStatus.EXPIRED
             tx.save(update_fields=["status", "provider_payload", "updated_at"])
     return tx
 
 
 def initiate(tx: WalletTransaction) -> None:
+    tx = WalletTransaction.objects.get(pk=tx.pk)
+    if tx.status != TransactionStatus.PENDING or tx.external_reference:
+        return  # déjà initiée, rejetée ou close : pas de second appel à l'opérateur
+    if (
+        tx.type == TransactionType.PAYOUT
+        and not PayoutRequest.objects.filter(transaction=tx, status=PayoutStatus.PENDING).exists()
+    ):
+        return  # en attente de validation, ou rejeté entre-temps
     provider = get_provider(tx.operator or "mtn")
+    # référence opérateur générée par le serveur (identifiant de la transaction), jamais la
+    # clé d'idempotence choisie par le client : il ne peut ni la deviner ni la forger
+    ref = str(tx.pk)
     if tx.type == TransactionType.DEPOSIT:
-        res = provider.initiate_collection(tx.amount, tx.phone_number or "", tx.idempotency_key)
+        res = provider.initiate_collection(tx.amount, tx.phone_number or "", ref)
     else:
-        res = provider.initiate_disbursement(-tx.amount, tx.phone_number or "", tx.idempotency_key)
+        res = provider.initiate_disbursement(-tx.amount, tx.phone_number or "", ref)
     WalletTransaction.objects.filter(pk=tx.pk).update(
         external_reference=res.external_reference,
         provider_payload={**tx.provider_payload, "initiate": res.payload},
     )
     if res.status == "failed":
         mark_transaction(tx.pk, "failed", {"reason": "Refus à l'initiation"})
-    PayoutRequest.objects.filter(transaction=tx).update(status=PayoutStatus.PROCESSING)
+        return
+    PayoutRequest.objects.filter(transaction=tx, status=PayoutStatus.PENDING).update(
+        status=PayoutStatus.PROCESSING
+    )
 
 
 def poll_pending() -> int:
@@ -539,15 +614,16 @@ def poll_pending() -> int:
         external_reference__isnull=False,
         created_at__lt=now - timedelta(seconds=settings.DEPOSIT_POLL_AFTER_S),
     )
+    expire_after = timedelta(seconds=settings.DEPOSIT_EXPIRE_AFTER_S)
     for tx in qs:
-        if now - tx.created_at > timedelta(seconds=settings.DEPOSIT_EXPIRE_AFTER_S):
-            mark_transaction(tx.pk, "expired")
-            n += 1
-            continue
-        if tx.last_polled_at and now - tx.last_polled_at < timedelta(
-            seconds=settings.DEPOSIT_POLL_INTERVAL_S
+        too_old = now - tx.created_at > expire_after
+        if (
+            not too_old
+            and tx.last_polled_at
+            and now - tx.last_polled_at < timedelta(seconds=settings.DEPOSIT_POLL_INTERVAL_S)
         ):
             continue
+        # toujours demander le statut à l'opérateur, y compris avant d'expirer
         provider = get_provider(tx.operator or "mtn")
         kind = "collection" if tx.type == TransactionType.DEPOSIT else "disbursement"
         status = provider.get_status(tx.external_reference or "", kind)
@@ -555,7 +631,37 @@ def poll_pending() -> int:
         if status in ("completed", "failed"):
             mark_transaction(tx.pk, status, {"source": "polling"})
             n += 1
+        elif too_old:
+            if tx.type == TransactionType.DEPOSIT:
+                mark_transaction(tx.pk, "expired")
+            else:
+                _flag_payout_for_review(tx, "Aucune confirmation de l'opérateur après 15 min")
+            n += 1
+    # retraits jamais transmis à l'opérateur (initiation en échec) : revue manuelle
+    for tx in WalletTransaction.objects.filter(
+        status=TransactionStatus.PENDING,
+        type=TransactionType.PAYOUT,
+        external_reference__isnull=True,
+        created_at__lt=now - expire_after,
+        payout_request__status__in=(PayoutStatus.PENDING, PayoutStatus.PROCESSING),
+    ):
+        _flag_payout_for_review(tx, "Retrait non transmis à l'opérateur")
     return n
+
+
+def _flag_payout_for_review(tx: WalletTransaction, reason: str) -> None:
+    """Retrait sans issue connue : l'argent reste débité, la finance tranche (rejet =
+    recrédit après vérification opérateur). Une seule alerte par retrait."""
+    if (tx.provider_payload or {}).get("review_alerted"):
+        return
+    WalletTransaction.objects.filter(pk=tx.pk).update(
+        provider_payload={**(tx.provider_payload or {}), "review_alerted": reason}
+    )
+    log.error("Retrait %s à vérifier : %s", tx.pk, reason)
+    events.send_to_admins(
+        "admin.alert",
+        {"type": "payout_review", "transaction_id": str(tx.pk), "reason": reason},
+    )
 
 
 def handle_webhook(operator: str, headers: dict, body: bytes) -> None:
@@ -567,13 +673,50 @@ def handle_webhook(operator: str, headers: dict, body: bytes) -> None:
     if tx is None:
         log.warning("Webhook %s pour référence inconnue %s", operator, event.external_reference)
         return
-    if tx.status != TransactionStatus.PENDING:
+    late_deposit = tx.status == TransactionStatus.EXPIRED and tx.type == TransactionType.DEPOSIT
+    if tx.status != TransactionStatus.PENDING and not late_deposit:
         return  # rejoué : ignoré (A-09)
     kind = "collection" if tx.type == TransactionType.DEPOSIT else "disbursement"
+    # seul le statut confirmé par l'API de l'opérateur fait foi : le contenu du webhook
+    # n'est qu'un signal (un webhook forgé ne peut ni créditer ni recréditer)
     confirmed = provider.get_status(event.external_reference, kind)
-    status = confirmed if confirmed in ("completed", "failed") else event.status
-    if status in ("completed", "failed"):
-        mark_transaction(tx.pk, status, {"source": "webhook", **event.payload})
+    if confirmed in ("completed", "failed"):
+        mark_transaction(tx.pk, confirmed, {"source": "webhook", **event.payload})
+    elif event.status in ("completed", "failed"):
+        log.warning(
+            "Webhook %s : statut annoncé %s non confirmé par l'opérateur (%s)",
+            operator,
+            event.status,
+            confirmed,
+        )
+
+
+def _expected_reserved(user_id) -> Decimal:
+    """Somme des réservations ouvertes : courses wallet actives, locations demandées /
+    acceptées / en cours (prix + caution), places de covoiturage confirmées."""
+    from apps.carpool.models import CarpoolBooking, CarpoolBookingStatus
+    from apps.rentals.models import BookingStatus, RentalBooking
+    from apps.rides.models import ACTIVE_STATUSES, Ride
+
+    rides = (
+        Ride.objects.filter(
+            passenger_id=user_id,
+            status__in=ACTIVE_STATUSES,
+            payment_method=PaymentMethod.WALLET,
+        ).aggregate(s=Sum("reserved_amount"))["s"]
+        or ZERO
+    )
+    rentals = RentalBooking.objects.filter(
+        renter_id=user_id,
+        status__in=(BookingStatus.REQUESTED, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS),
+    ).aggregate(p=Sum("total_price"), c=Sum("deposit_amount"))
+    carpool = (
+        CarpoolBooking.objects.filter(
+            passenger_id=user_id, status=CarpoolBookingStatus.CONFIRMED
+        ).aggregate(s=Sum("price_total"))["s"]
+        or ZERO
+    )
+    return d(rides + (rentals["p"] or ZERO) + (rentals["c"] or ZERO) + carpool)
 
 
 def recompute_balances() -> list[dict]:
@@ -593,13 +736,16 @@ def recompute_balances() -> list[dict]:
             or ZERO
         )
         expected = d(total + pending_payouts)
-        if expected != d(wallet.balance):
+        expected_reserved = _expected_reserved(wallet.user_id)
+        if expected != d(wallet.balance) or expected_reserved != d(wallet.reserved_balance):
             mismatches.append(
                 {
                     "wallet_id": str(wallet.id),
                     "user_id": str(wallet.user_id),
                     "balance": str(wallet.balance),
                     "expected": str(expected),
+                    "reserved_balance": str(wallet.reserved_balance),
+                    "expected_reserved": str(expected_reserved),
                 }
             )
     if mismatches:

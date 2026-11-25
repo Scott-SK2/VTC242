@@ -169,7 +169,7 @@ def driver_api(driver):
 
 @pytest.fixture
 def admin_api(admin_user):
-    return client_for(admin_user)
+    return client_for(admin_user, totp_ok=True)
 
 
 def request_ride(api, category="taxi", payment_method="wallet"):

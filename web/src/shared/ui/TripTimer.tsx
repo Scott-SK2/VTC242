@@ -25,7 +25,7 @@ function useNow(active: boolean): number {
  */
 export function TripTimer({
   ride,
-  freeWaitingSeconds = 180,
+  freeWaitingSeconds,
   className = '',
 }: {
   ride: Ride;
@@ -33,12 +33,14 @@ export function TripTimer({
   className?: string;
 }) {
   const { t } = useTranslation();
+  // attente gratuite propre à la grille (VIP, mariage, déménagement : plus longue)
+  const freeWaiting = freeWaitingSeconds ?? ride.free_waiting_seconds ?? 180;
   const waiting = ride.status === 'arrived' && !!ride.arrived_at;
   const riding = ride.status === 'in_progress' && !!ride.started_at;
   const now = useNow(waiting || riding);
   if (waiting) {
     const waited = (now - new Date(ride.arrived_at as string).getTime()) / 1000;
-    const paid = waited > freeWaitingSeconds;
+    const paid = waited > freeWaiting;
     return (
       <div
         className={`rounded-xl px-3 py-2 text-sm flex items-center justify-between gap-2 ${
@@ -51,7 +53,7 @@ export function TripTimer({
         <span className="font-semibold text-right">
           {paid
             ? t('tripTimer.waitingPaid')
-            : t('tripTimer.waitingFree', { left: mmss(freeWaitingSeconds - waited) })}
+            : t('tripTimer.waitingFree', { left: mmss(freeWaiting - waited) })}
         </span>
       </div>
     );

@@ -8,6 +8,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.common.exceptions import ApiError, Locked
@@ -160,6 +161,10 @@ def _apply_mode(user: User, target: str) -> None:
         Driver.objects.get_or_create(user=user)
     user.role = target
     user.save(update_fields=["role"])
+    from apps.realtime.events import close_user_sockets
+
+    uid = user.pk
+    transaction.on_commit(lambda: close_user_sockets(uid))
 
 
 @transaction.atomic
@@ -170,11 +175,18 @@ def switch_mode(user: User, target: str, device_id: str | None = None) -> dict:
             "Changement de mode impossible pour ce compte.", code="forbidden", status_code=403
         )
     user = User.objects.select_for_update().get(pk=user.pk)
-    if user.role != target:
-        reason = mode_switch_blocker(user)
-        if reason:
-            raise ApiError(reason, code="mode_switch_blocked", status_code=409)
-        _apply_mode(user, target)
+    if user.role == target:
+        # pas de nouveaux jetons sans changement réel de mode
+        raise ApiError("Vous êtes déjà dans ce mode.", code="same_mode", status_code=409)
+    from apps.drivers.models import Driver
+
+    # verrou du profil chauffeur : une acceptation de course simultanée attend la bascule
+    # (et la voit), ou la bascule attend l'acceptation (et voit la course en cours)
+    list(Driver.objects.select_for_update().filter(user=user))
+    reason = mode_switch_blocker(user)
+    if reason:
+        raise ApiError(reason, code="mode_switch_blocked", status_code=409)
+    _apply_mode(user, target)
     return _issue_for(user, device_id)
 
 
@@ -219,11 +231,50 @@ def logout_everywhere(user: User) -> None:
     user.tokens_valid_from = timezone.now() + timedelta(seconds=1)
     user.active_device_id = None
     user.save(update_fields=["tokens_valid_from", "active_device_id"])
+    from apps.realtime.events import close_user_sockets
+
+    uid = user.pk
+    transaction.on_commit(lambda: close_user_sockets(uid))
+
+
+def deletion_blocker(user: User) -> str | None:
+    """Engagements en cours qui empêchent de supprimer le compte (F-04)."""
+    from apps.carpool.models import CarpoolBooking, CarpoolBookingStatus, CarpoolTrip, TripStatus
+    from apps.payments.models import Wallet
+    from apps.rentals.models import BookingStatus, RentalBooking
+    from apps.rides.models import ACTIVE_STATUSES, Ride
+
+    if Ride.objects.filter(
+        Q(passenger=user) | Q(driver__user=user), status__in=ACTIVE_STATUSES
+    ).exists():
+        return "Terminez ou annulez votre course en cours avant de supprimer votre compte."
+    open_rentals = (BookingStatus.REQUESTED, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS)
+    if RentalBooking.objects.filter(
+        Q(renter=user) | Q(owner=user), status__in=open_rentals
+    ).exists():
+        return "Une location est en cours ou à venir : terminez-la ou annulez-la d'abord."
+    if (
+        CarpoolBooking.objects.filter(
+            passenger=user, status=CarpoolBookingStatus.CONFIRMED
+        ).exists()
+        or CarpoolTrip.objects.filter(
+            driver=user, status__in=(TripStatus.PUBLISHED, TripStatus.IN_PROGRESS)
+        ).exists()
+    ):
+        return "Un covoiturage est prévu : annulez-le d'abord."
+    wallet = Wallet.objects.filter(user=user).first()
+    if wallet is not None and wallet.balance < 0:
+        return "Votre wallet est débiteur : rechargez-le avant de supprimer votre compte."
+    return None
 
 
 @transaction.atomic
 def anonymize_user(user: User) -> None:
     """F-04 : anonymisation des données personnelles, conservation des transactions."""
+    user = User.objects.select_for_update().get(pk=user.pk)
+    reason = deletion_blocker(user)
+    if reason:
+        raise ApiError(reason, code="deletion_blocked", status_code=409)
     suffix = user.id.hex[:12]
     user.phone_number = f"deleted:{suffix}"
     user.first_name = "Compte"
@@ -239,4 +290,12 @@ def anonymize_user(user: User) -> None:
     from apps.drivers.models import Driver
 
     Driver.objects.filter(user=user).update(is_online=False, is_available=False, status="suspended")
+    from apps.drivers import geoindex
+
+    for drv in Driver.objects.filter(user=user):
+        geoindex.remove(drv)
+    from apps.rentals.models import RentalListing
+
+    # plus d'annonce de location réservable au nom d'un compte supprimé
+    RentalListing.objects.filter(owner=user).update(is_active=False)
     logout_everywhere(user)

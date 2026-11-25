@@ -245,10 +245,15 @@ def owner_action(booking_id, owner, action: str, reason: str = "") -> RentalBook
     booking = _locked_booking(booking_id)
     if booking.owner_id != owner.id:
         raise NotFound("Réservation introuvable.")
+    if action in ("accept", "start", "complete"):
+        _owner_driver(owner)  # un loueur suspendu ne peut plus encaisser
     now = timezone.now()
+    today = timezone.localdate()
     if action == "accept":
         if booking.status != BookingStatus.REQUESTED:
             raise Conflict("Cette demande n'est plus en attente.", code="invalid_transition")
+        # verrou de l'annonce : deux acceptations simultanées ne peuvent pas se chevaucher
+        RentalListing.objects.select_for_update().get(pk=booking.listing_id)
         if overlapping(booking.listing, booking.start_date, booking.end_date, booking.id).exists():
             raise Conflict("Le véhicule est déjà réservé sur ces dates.", code="dates_unavailable")
         booking.status = BookingStatus.ACCEPTED
@@ -278,6 +283,10 @@ def owner_action(booking_id, owner, action: str, reason: str = "") -> RentalBook
     elif action == "start":
         if booking.status != BookingStatus.ACCEPTED:
             raise Conflict("La réservation doit être acceptée.", code="invalid_transition")
+        if today < booking.start_date:
+            raise Conflict(
+                "La location ne peut démarrer qu'à partir de sa date de début.", code="too_early"
+            )
         booking.status = BookingStatus.IN_PROGRESS
         booking.started_at = now
         booking.save(update_fields=["status", "started_at", "updated_at"])
@@ -285,27 +294,13 @@ def owner_action(booking_id, owner, action: str, reason: str = "") -> RentalBook
     elif action == "complete":
         if booking.status != BookingStatus.IN_PROGRESS:
             raise Conflict("La location n'est pas en cours.", code="invalid_transition")
-        commission = round_franc(d(booking.total_price) * settings.RENTAL_COMMISSION_RATE)
-        result = payments.settle_service(
-            booking.renter,
-            booking.owner,
-            booking.total_price,
-            commission,
-            kind=KIND,
-            reference=str(booking.id),
-        )
-        if booking.deposit_amount > ZERO:
-            payments.release(booking.renter, booking.deposit_amount)
-        booking.status = BookingStatus.COMPLETED
-        booking.commission_amount = result["commission"]
-        booking.completed_at = now
-        booking.save(update_fields=["status", "commission_amount", "completed_at", "updated_at"])
-        _notify_booking(
-            booking,
-            "Location terminée",
-            f"Merci ! {booking.total_price:.0f} F ont été débités ; votre caution est libérée.",
-            to_owner=False,
-        )
+        if today < booking.end_date:
+            # le prix couvre toute la période réservée : pas d'encaissement anticipé
+            raise Conflict(
+                "La location ne peut être clôturée qu'à partir de sa date de fin.",
+                code="too_early",
+            )
+        _complete_booking(booking)
     elif action == "cancel":
         if booking.status not in (BookingStatus.REQUESTED, BookingStatus.ACCEPTED):
             raise Conflict(
@@ -325,6 +320,33 @@ def owner_action(booking_id, owner, action: str, reason: str = "") -> RentalBook
     else:
         raise NotFound("Action inconnue.")
     return booking
+
+
+def _complete_booking(booking: RentalBooking) -> None:
+    """Règlement d'une location : prix débité au client (moins la commission pour le
+    loueur), caution libérée."""
+    now = timezone.now()
+    commission = round_franc(d(booking.total_price) * settings.RENTAL_COMMISSION_RATE)
+    result = payments.settle_service(
+        booking.renter,
+        booking.owner,
+        booking.total_price,
+        commission,
+        kind=KIND,
+        reference=str(booking.id),
+    )
+    if booking.deposit_amount > ZERO:
+        payments.release(booking.renter, booking.deposit_amount)
+    booking.status = BookingStatus.COMPLETED
+    booking.commission_amount = result["commission"]
+    booking.completed_at = now
+    booking.save(update_fields=["status", "commission_amount", "completed_at", "updated_at"])
+    _notify_booking(
+        booking,
+        "Location terminée",
+        f"Merci ! {booking.total_price:.0f} F ont été débités ; votre caution est libérée.",
+        to_owner=False,
+    )
 
 
 @transaction.atomic
@@ -386,6 +408,38 @@ def expire_requests() -> int:
                 "Le loueur n'a pas répondu à temps ; vos fonds sont libérés.",
                 to_owner=False,
             )
+            n += 1
+    # acceptées mais jamais démarrées (loueur absent) : expirées sans frais
+    for booking_id in RentalBooking.objects.filter(
+        status=BookingStatus.ACCEPTED,
+        start_date__lt=today - timedelta(days=settings.RENTAL_NO_SHOW_DAYS),
+    ).values_list("id", flat=True):
+        with transaction.atomic():
+            booking = _locked_booking(booking_id)
+            if booking.status != BookingStatus.ACCEPTED:
+                continue
+            _release(booking)
+            booking.status = BookingStatus.EXPIRED
+            booking.status_reason = "Location jamais démarrée"
+            booking.cancelled_at = timezone.now()
+            booking.save(update_fields=["status", "status_reason", "cancelled_at", "updated_at"])
+            _notify_booking(
+                booking,
+                "Location expirée",
+                "La location n'a pas démarré ; vos fonds sont libérés sans frais.",
+                to_owner=False,
+            )
+            n += 1
+    # en cours bien après la date de fin : clôture automatique (fonds non bloqués à vie)
+    for booking_id in RentalBooking.objects.filter(
+        status=BookingStatus.IN_PROGRESS,
+        end_date__lt=today - timedelta(days=settings.RENTAL_AUTO_COMPLETE_DAYS),
+    ).values_list("id", flat=True):
+        with transaction.atomic():
+            booking = _locked_booking(booking_id)
+            if booking.status != BookingStatus.IN_PROGRESS:
+                continue
+            _complete_booking(booking)
             n += 1
     return n
 

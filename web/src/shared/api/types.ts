@@ -228,6 +228,8 @@ export interface Ride {
   deviation: { active: boolean; distance_off_m: number; since: string } | null;
   detour_until: string | null;
   share_token: string | null;
+  /** Attente gratuite (s) de la grille appliquée à la course. */
+  free_waiting_seconds?: number;
 }
 
 export interface Message {

@@ -4,6 +4,16 @@ import { ridesApi, walletApi } from './endpoints';
 import type { Message, Ride, Wallet } from './types';
 import { useWsEvent } from '@/shared/ws';
 
+/** Statuts où la course reste « en cours » (no_driver : fonds réservés, relance possible). */
+const ACTIVE_STATUSES: string[] = [
+  'requested',
+  'dispatching',
+  'no_driver',
+  'accepted',
+  'arrived',
+  'in_progress',
+];
+
 export const qk = {
   ride: (id: string) => ['ride', id] as const,
   activeRide: ['rides', 'active'] as const,
@@ -31,6 +41,10 @@ export function useRide(id: string | undefined) {
   useWsEvent('ride.status_updated', (ride) => {
     if (ride.id === id) {
       qc.setQueryData<Ride>(qk.ride(ride.id), (old) => ({ ...(old ?? ride), ...ride }));
+      // course terminée ou annulée : plus de course active en cache (sinon l'accueil
+      // redirigeait vers la course annulée avant d'avoir rechargé)
+      if (!ACTIVE_STATUSES.includes(ride.status))
+        qc.setQueryData<Ride | null>(qk.activeRide, (old) => (old?.id === ride.id ? null : (old ?? null)));
       void qc.invalidateQueries({ queryKey: qk.activeRide });
     }
   });
@@ -68,7 +82,7 @@ export function useActiveRide(enabled = true) {
   });
   useWsEvent('ride.status_updated', (ride) => {
     qc.setQueryData<Ride | null>(qk.activeRide, (old) => {
-      const active = ['requested', 'dispatching', 'accepted', 'arrived', 'in_progress'].includes(ride.status);
+      const active = ACTIVE_STATUSES.includes(ride.status);
       if (!active) return old?.id === ride.id ? null : (old ?? null);
       return ride;
     });

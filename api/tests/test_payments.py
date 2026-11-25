@@ -146,7 +146,7 @@ def test_manual_approval_above_threshold(driver_api, driver, admin_user):
     )
     req = PayoutRequest.objects.get(transaction_id=r.data["id"])
     assert req.status == "awaiting_approval"
-    admin = client_for(admin_user)
+    admin = client_for(admin_user, totp_ok=True)
     a = admin.post(f"/api/v1/admin/finance/payouts/{req.id}/approve")
     assert a.status_code == 200 and a.data["status"] in ("pending", "processing")
     req.refresh_from_db()

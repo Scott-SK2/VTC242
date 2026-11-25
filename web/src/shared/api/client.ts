@@ -52,7 +52,9 @@ export function newIdempotencyKey(): string {
 
 let refreshInFlight: Promise<string | null> | null = null;
 
-/** Rafraîchit l'access token (rotation du refresh). Une seule requête à la fois. */
+/** Rafraîchit l'access token (rotation du refresh). Une seule requête à la fois.
+ * Seul un refus explicite du refresh (400/401) ferme la session : une coupure réseau,
+ * un 429 ou un 5xx (déploiement, passerelle) renvoie null sans déconnecter. */
 export function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   const { refreshToken } = useAuthStore.getState();
@@ -65,7 +67,7 @@ export function refreshAccessToken(): Promise<string | null> {
         body: JSON.stringify({ refresh: refreshToken }),
       });
       if (!res.ok) {
-        useAuthStore.getState().logout();
+        if (res.status === 400 || res.status === 401) useAuthStore.getState().logout();
         return null;
       }
       const data = (await res.json()) as AuthTokens;
@@ -135,8 +137,9 @@ export async function requestRaw(path: string, opts: RequestOptions = {}): Promi
       } catch (e) {
         throw new ApiError(0, { code: 'network_error', message: (e as Error).message });
       }
-    } else {
-      useAuthStore.getState().logout();
+    } else if (useAuthStore.getState().refreshToken) {
+      // refresh impossible pour l'instant (réseau, serveur) : session conservée
+      throw new ApiError(0, { code: 'network_error', message: 'Connexion au serveur impossible.' });
     }
   }
   if (!res.ok) {

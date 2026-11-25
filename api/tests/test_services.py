@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.payments import services as payments
 from apps.realtime import events
+from apps.rentals.models import RentalBooking
 
 from .conftest import client_for, make_driver, make_user
 
@@ -87,10 +88,18 @@ def test_rental_full_flow_with_deposit(api, passenger, owner, owner_api, listing
     # les dates occupées sont exclues du catalogue filtré
     cat = api.get("/api/v1/rentals/listings", {"start_date": start, "end_date": end})
     assert cat.data["results"] == []
+    # pas de démarrage avant la date de début, pas de clôture avant la date de fin
+    early = owner_api.post(f"/api/v1/rentals/bookings/{bid}/start", {}, format="json")
+    assert early.status_code == 409 and early.data["code"] == "too_early"
+    today = timezone.localdate()
+    RentalBooking.objects.filter(pk=bid).update(start_date=today, end_date=today + timedelta(1))
     assert (
         owner_api.post(f"/api/v1/rentals/bookings/{bid}/start", {}, format="json").status_code
         == 200
     )
+    early = owner_api.post(f"/api/v1/rentals/bookings/{bid}/complete", {}, format="json")
+    assert early.status_code == 409 and early.data["code"] == "too_early"
+    RentalBooking.objects.filter(pk=bid).update(start_date=today - timedelta(1), end_date=today)
     c = owner_api.post(f"/api/v1/rentals/bookings/{bid}/complete", {}, format="json")
     assert c.status_code == 200 and c.data["status"] == "completed"
     assert Decimal(c.data["commission_amount"]) == Decimal("2400")  # 10 %
@@ -224,6 +233,12 @@ def test_carpool_search_book_complete(api, passenger, carpool_driver, trip):
         departure_at=timezone.now() + timedelta(minutes=30)
     )
     assert d.post(f"/api/v1/carpool/trips/{trip['id']}/start", {}, format="json").status_code == 200
+    # pas de clôture (ni d'encaissement) avant l'heure de départ
+    early = d.post(f"/api/v1/carpool/trips/{trip['id']}/complete", {}, format="json")
+    assert early.status_code == 409 and early.data["code"] == "too_early"
+    CarpoolTrip.objects.filter(pk=trip["id"]).update(
+        departure_at=timezone.now() - timedelta(minutes=30)
+    )
     c = d.post(f"/api/v1/carpool/trips/{trip['id']}/complete", {}, format="json")
     assert c.status_code == 200 and c.data["status"] == "completed"
     pw = payments.get_wallet(passenger)

@@ -20,7 +20,9 @@ class StaffPermission(BasePermission):
         roles = getattr(view, "roles", None) or self.roles
         if user.role not in roles:
             raise ApiError("Rôle insuffisant.", code="forbidden", status_code=403)
-        if user.role in TOTP_ROLES and user.totp_enabled:
+        # admin / finance : TOTP exigé même s'il n'est pas encore configuré (seuls les
+        # écrans de configuration et de vérification restent accessibles sans lui)
+        if user.role in TOTP_ROLES:
             token = getattr(request, "auth", None)
             if not token or not token.get("totp"):
                 raise ApiError("Validation TOTP requise.", code="totp_required", status_code=403)

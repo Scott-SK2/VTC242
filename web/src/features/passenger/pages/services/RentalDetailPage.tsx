@@ -73,7 +73,10 @@ export default function RentalDetailPage() {
   if (listing.error || !listing.data)
     return (
       <MobilePage title={t('rentals.title')}>
-        <ErrorBox error={listing.error ?? new Error('not found')} onRetry={() => void listing.refetch()} />
+        <ErrorBox
+          error={listing.error ?? new Error(t('common.notFound'))}
+          onRetry={() => void listing.refetch()}
+        />
       </MobilePage>
     );
   const l = listing.data;
@@ -85,7 +88,8 @@ export default function RentalDetailPage() {
         <img src={l.photo_url} alt="" className="w-full h-44 object-cover rounded-2xl bg-gray-100 mb-3" />
       )}
       <p className="text-sm text-gray-600">
-        {v.brand} {v.model} · {v.color} · {t(`categories.${v.category}`)} · {v.seats} pl. · {l.city}
+        {v.brand} {v.model} · {v.color} · {t(`categories.${v.category}`)} ·{' '}
+        {t('common.seatsShort', { count: v.seats })} · {l.city}
       </p>
       <p className="text-sm text-gray-600 mt-1">
         {t('rentals.owner')} : {l.owner.first_name || '—'}

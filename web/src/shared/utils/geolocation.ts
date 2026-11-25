@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LatLng } from '@/shared/api/types';
 import { useGeoSimStore } from '@/shared/store/geoSim';
 
@@ -61,6 +61,12 @@ export function useWatchPosition(enabled = true) {
     setFix(simulatedFix(simPosition));
     setError(null);
   }, [enabled, simEnabled, simPosition]);
+  // Fin de la simulation : la dernière position simulée n'est plus valable
+  const wasSim = useRef(simEnabled);
+  useEffect(() => {
+    if (wasSim.current && !simEnabled) setFix(null);
+    wasSim.current = simEnabled;
+  }, [simEnabled]);
   useEffect(() => {
     if (!enabled || simEnabled || !('geolocation' in navigator)) return;
     const id = navigator.geolocation.watchPosition(

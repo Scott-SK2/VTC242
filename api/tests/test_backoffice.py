@@ -52,11 +52,22 @@ def test_driver_validation_flow(admin_api, zone):
         assert (
             dc.post(
                 "/api/v1/drivers/me/documents",
-                {"type": t, "file_url": "https://files.example.com/y.jpg"},
+                {"type": t, "file_url": f"http://localhost:8000/media/uploads/{user.id}/doc/y.jpg"},
                 format="json",
             ).status_code
             == 201
         )
+    # une pièce hébergée ailleurs, ou téléversée par un autre compte, est refusée
+    for url in (
+        "https://files.example.com/y.jpg",
+        f"http://localhost:8000/media/uploads/{driver.id}/doc/y.jpg",
+    ):
+        bad = dc.post(
+            "/api/v1/drivers/me/documents",
+            {"type": DocumentType.LICENSE, "file_url": url},
+            format="json",
+        )
+        assert bad.status_code == 400 and bad.data["code"] == "invalid_upload"
     me = dc.get("/api/v1/drivers/me")
     assert me.data["can_go_online"] is False and me.data["status"] == "pending"
     assert (
@@ -194,19 +205,31 @@ def test_roles_and_totp(db, zone):
     fc, sc = client_for(finance), client_for(support)
     assert sc.get("/api/v1/admin/dashboard").status_code == 200
     assert sc.get("/api/v1/admin/finance/summary").status_code == 403
-    assert fc.get("/api/v1/admin/finance/summary").status_code == 200
-    assert fc.get("/api/v1/admin/audit-logs").status_code == 403
-    # activation TOTP → sans validation, 403 totp_required
+    # finance sans TOTP (même pas encore configuré) : rien d'autre que la configuration
+    r = fc.get("/api/v1/admin/finance/summary")
+    assert r.status_code == 403 and r.data["code"] == "totp_required"
     setup = fc.post("/api/v1/admin/totp/setup")
     assert setup.status_code == 200
-    code = pyotp.TOTP(setup.data["secret"]).now()
-    ver = fc.post("/api/v1/admin/totp/verify", {"code": code}, format="json")
+    totp = pyotp.TOTP(setup.data["secret"])
+    ver = fc.post("/api/v1/admin/totp/verify", {"code": totp.now()}, format="json")
     assert ver.status_code == 200
+    # le même code ne peut pas resservir (rejeu)
+    again = fc.post("/api/v1/admin/totp/verify", {"code": totp.now()}, format="json")
+    assert again.status_code == 400 and again.data["code"] == "invalid_totp"
     plain = client_for(finance)
     r = plain.get("/api/v1/admin/finance/summary")
     assert r.status_code == 403 and r.data["code"] == "totp_required"
+    # avec le seul code SMS, impossible de remplacer un TOTP actif
+    r = plain.post("/api/v1/admin/totp/setup")
+    assert r.status_code == 403 and r.data["code"] == "totp_required"
     plain.credentials(HTTP_AUTHORIZATION=f"Bearer {ver.data['access']}")
     assert plain.get("/api/v1/admin/finance/summary").status_code == 200
+    assert plain.get("/api/v1/admin/audit-logs").status_code == 403
+    # 5 codes faux : verrouillage
+    for _ in range(5):
+        fc.post("/api/v1/admin/totp/verify", {"code": "000000"}, format="json")
+    r = fc.post("/api/v1/admin/totp/verify", {"code": totp.now()}, format="json")
+    assert r.status_code == 429 and r.data["code"] == "totp_locked"
 
 
 def test_dashboard_fleet_alerts_passengers_export(

@@ -85,9 +85,14 @@ class PayoutView(APIView):
 
 
 def _client_ip(request) -> str:
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """IP vue par le dernier proxy de confiance (Render) : l'entrée la plus à droite non
+    ajoutée par nos proxys. Les premières entrées de X-Forwarded-For sont fournies par le
+    client et ne prouvent rien."""
+    forwarded = [x.strip() for x in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")]
+    forwarded = [x for x in forwarded if x]
+    proxies = int(str(settings.REST_FRAMEWORK.get("NUM_PROXIES") or 0))
+    if forwarded and proxies:
+        return forwarded[-min(proxies, len(forwarded))]
     return request.META.get("REMOTE_ADDR", "")
 
 
